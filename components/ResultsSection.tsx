@@ -82,7 +82,7 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-600 text-sm">Federal Tax</span>
-              <span className="text-slate-900 font-bold">{formatMoney(results.taxObligation)}</span>
+              <span className="text-slate-900 font-bold">{formatMoney(results.taxObligation + results.dependentCredit)}</span>
             </div>
             {results.dependentCredit > 0 && (
               <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
@@ -90,6 +90,10 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                 <span className="text-green-600 font-bold">-{formatMoney(results.dependentCredit)}</span>
               </div>
             )}
+            <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
+              <span className="text-slate-700 font-semibold text-sm">Total Tax Owed</span>
+              <span className="text-slate-900 font-bold">{formatMoney(results.taxObligation)}</span>
+            </div>
           </div>
         </div>
       </div>
