@@ -144,6 +144,24 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                 )}
               </div>
             )}
+
+            {/* Backdoor Roth IRA recommendation when Traditional is not deductible and Roth is not eligible */}
+            {results.iraDeductionInfo.isNonDeductible && !iraRecommendations.rothEligible && iraRecommendations.globalLimit > 0 && (
+              <div className="bg-blue-50 rounded-xl p-4 mt-4 border border-blue-200">
+                <p className="text-xs font-semibold text-blue-700 mb-2">Consider Backdoor Roth IRA</p>
+                <p className="text-xs text-slate-600 mb-2">
+                  Since Traditional IRA contributions are not deductible and you're not eligible for direct Roth IRA contributions, consider a <strong>Backdoor Roth IRA</strong> strategy:
+                </p>
+                <div className="space-y-1 text-xs text-slate-600">
+                  <p>1. Contribute {formatMoney(iraRecommendations.globalLimit)} to a non-deductible Traditional IRA</p>
+                  <p>2. Immediately convert it to a Roth IRA (no tax on conversion since it's already after-tax)</p>
+                  <p>3. Future growth will be tax-free in the Roth IRA</p>
+                </div>
+                <p className="text-xs text-slate-500 mt-2 italic">
+                  Note: This strategy works best if you don't have existing Traditional IRA balances to avoid pro-rata rules.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -182,12 +200,30 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                 )}
               </div>
             )}
+
+            {/* Backdoor Roth IRA recommendation for spouse when Traditional is not deductible and Roth is not eligible */}
+            {results.spouseIraDeductionInfo && results.spouseIraDeductionInfo.isNonDeductible && !spouseIraRecommendations.rothEligible && spouseIraRecommendations.globalLimit > 0 && (
+              <div className="bg-blue-50 rounded-xl p-4 mt-4 border border-blue-200">
+                <p className="text-xs font-semibold text-blue-700 mb-2">Consider Backdoor Roth IRA (Spouse)</p>
+                <p className="text-xs text-slate-600 mb-2">
+                  Since Traditional IRA contributions are not deductible and spouse is not eligible for direct Roth IRA contributions, consider a <strong>Backdoor Roth IRA</strong> strategy:
+                </p>
+                <div className="space-y-1 text-xs text-slate-600">
+                  <p>1. Contribute {formatMoney(spouseIraRecommendations.globalLimit)} to a non-deductible Traditional IRA</p>
+                  <p>2. Immediately convert it to a Roth IRA (no tax on conversion since it's already after-tax)</p>
+                  <p>3. Future growth will be tax-free in the Roth IRA</p>
+                </div>
+                <p className="text-xs text-slate-500 mt-2 italic">
+                  Note: This strategy works best if you don't have existing Traditional IRA balances to avoid pro-rata rules.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Savings Tips */}
-      {(results.potentialSavings401k || results.potentialSavingsIRA) && (
+      {(results.potentialSavings401k || (results.potentialSavingsIRA && results.iraDeductionInfo.deductibleAmount > 0)) && (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-4 text-slate-400 uppercase text-xs font-bold tracking-wider">
             <TrendingUp className="w-4 h-4" /> Tax Bracket & Savings Tips
@@ -200,7 +236,7 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                 <p className="text-xs text-slate-600">Save approximately {formatMoney(results.potentialSavings401k.taxSavings)} in taxes</p>
               </div>
             )}
-            {results.potentialSavingsIRA && (
+            {results.potentialSavingsIRA && results.iraDeductionInfo.deductibleAmount > 0 && (
               <div className="bg-green-50 rounded-xl p-4">
                 <p className="text-sm font-semibold text-green-700 mb-1">Increase IRA by $1,000</p>
                 <p className="text-xs text-slate-600">Save approximately {formatMoney(results.potentialSavingsIRA.taxSavings)} in taxes</p>
