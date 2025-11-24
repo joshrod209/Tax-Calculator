@@ -1,4 +1,11 @@
 // Tax Year Data - Organized by year for easy maintenance and updates
+
+export interface IRALimitSet {
+    full?: number;
+    phaseOutStart: number;
+    phaseOutEnd: number;
+}
+
 export const TAX_YEAR_DATA = {
     2025: {
         brackets: {
@@ -71,11 +78,11 @@ export const TAX_YEAR_DATA = {
         studentLoanInterestLimit: 2500,
         educatorExpensesLimit: 300,
         traditionalIraDeductionLimits: {
-            singleCovered: { full: 79000, phaseOutStart: 79000, phaseOutEnd: 89000 },
-            headOfHouseholdCovered: { full: 79000, phaseOutStart: 79000, phaseOutEnd: 89000 },
-            marriedBothCovered: { full: 126000, phaseOutStart: 126000, phaseOutEnd: 146000 },
-            marriedOneCovered: { full: 236000, phaseOutStart: 236000, phaseOutEnd: 246000 },
-            marriedSeparateCovered: { phaseOutStart: 0, phaseOutEnd: 10000 }
+            singleCovered: { full: 79000, phaseOutStart: 79000, phaseOutEnd: 89000 } as IRALimitSet,
+            headOfHouseholdCovered: { full: 79000, phaseOutStart: 79000, phaseOutEnd: 89000 } as IRALimitSet,
+            marriedBothCovered: { full: 126000, phaseOutStart: 126000, phaseOutEnd: 146000 } as IRALimitSet,
+            marriedOneCovered: { full: 236000, phaseOutStart: 236000, phaseOutEnd: 246000 } as IRALimitSet,
+            marriedSeparateCovered: { phaseOutStart: 0, phaseOutEnd: 10000 } as IRALimitSet
         },
         rothIraLimits: {
             single: { phaseOutStart: 146000, phaseOutEnd: 161000 },
@@ -155,11 +162,11 @@ export const TAX_YEAR_DATA = {
         studentLoanInterestLimit: 2500,
         educatorExpensesLimit: 300,
         traditionalIraDeductionLimits: {
-            singleCovered: { full: 81000, phaseOutStart: 81000, phaseOutEnd: 91000 },
-            headOfHouseholdCovered: { full: 81000, phaseOutStart: 81000, phaseOutEnd: 91000 },
-            marriedBothCovered: { full: 129000, phaseOutStart: 129000, phaseOutEnd: 149000 },
-            marriedOneCovered: { full: 241000, phaseOutStart: 241000, phaseOutEnd: 251000 },
-            marriedSeparateCovered: { phaseOutStart: 0, phaseOutEnd: 10000 }
+            singleCovered: { full: 81000, phaseOutStart: 81000, phaseOutEnd: 91000 } as IRALimitSet,
+            headOfHouseholdCovered: { full: 81000, phaseOutStart: 81000, phaseOutEnd: 91000 } as IRALimitSet,
+            marriedBothCovered: { full: 129000, phaseOutStart: 129000, phaseOutEnd: 149000 } as IRALimitSet,
+            marriedOneCovered: { full: 241000, phaseOutStart: 241000, phaseOutEnd: 251000 } as IRALimitSet,
+            marriedSeparateCovered: { phaseOutStart: 0, phaseOutEnd: 10000 } as IRALimitSet
         },
         rothIraLimits: {
             single: { phaseOutStart: 149000, phaseOutEnd: 164000 },

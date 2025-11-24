@@ -1,4 +1,4 @@
-import { TAX_YEAR_DATA, type TaxYear, type FilingStatus } from './data';
+import { TAX_YEAR_DATA, type TaxYear, type FilingStatus, type IRALimitSet } from './data';
 import { getTaxYearData, calculateMAGI } from './utils';
 
 export interface IRADeductionInfo {
