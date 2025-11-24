@@ -175,7 +175,7 @@ export const TAX_YEAR_DATA = {
             marriedSeparately: { phaseOutStart: 0, phaseOutEnd: 10000 }
         }
     }
-} as const;
+};
 
 export type TaxYear = keyof typeof TAX_YEAR_DATA;
 export type FilingStatus = 'single' | 'headOfHousehold' | 'marriedJointly' | 'marriedSeparately';
