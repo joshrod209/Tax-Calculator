@@ -29,12 +29,16 @@ This project is being migrated from vanilla HTML/CSS/JS to Next.js with TypeScri
 ├── components/
 │   ├── Calculator.tsx       # Main calculator component
 │   ├── Header.tsx           # Header component
-│   ├── InputSection.tsx     # Input form (to be completed)
-│   └── ResultsSection.tsx   # Results display (to be completed)
+│   ├── InputSection.tsx     # Input form
+│   └── ResultsSection.tsx   # Results display
 ├── lib/
 │   ├── data.ts              # Tax year data (2025, 2026)
-│   └── utils.ts             # Utility functions
-└── script.js                # Original vanilla JS (to be fully migrated)
+│   ├── utils.ts             # Utility functions
+│   ├── ira-calculations.ts  # IRA deduction calculations
+│   └── tax-calculations.ts  # Main tax calculation engine
+├── hooks/
+│   └── useTaxCalculator.ts  # React hook for state management
+└── script.js                # Original vanilla JS (preserved for reference)
 ```
 
 ## Getting Started
@@ -75,12 +79,11 @@ The original `script.js` file (2284 lines) contains:
 - UI update functions
 - Event listeners
 
-These are being systematically migrated to:
+These have been migrated to:
 - TypeScript modules in `lib/`
 - React components in `components/`
 - React hooks for state management
 
 ## Original Files
 
-The original files (`index.html`, `script.js`, `styles.css`) are preserved for reference during migration.
-
+The original files (`index.html`, `script.js`, `styles.css`) are preserved for reference.
