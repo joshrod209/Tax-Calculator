@@ -47,12 +47,12 @@ export function calculateTraditionalIRADeductible(
     
     // Determine limits based on filing status and coverage
     if (filingStatus === 'marriedJointly' && isCoveredByEmployerPlan) {
-        const limits = yearData.traditionalIraDeductionLimits.marriedBothCovered;
+        const limits = yearData.traditionalIraDeductionLimits.marriedBothCovered as IRALimitSet;
         lowerLimit = limits.full || limits.phaseOutStart;
         upperLimit = limits.phaseOutEnd;
         phaseOutRange = upperLimit - lowerLimit;
     } else if (filingStatus === 'marriedJointly' && !isCoveredByEmployerPlan && isSpouseCoveredByEmployerPlan) {
-        const limits = yearData.traditionalIraDeductionLimits.marriedOneCovered;
+        const limits = yearData.traditionalIraDeductionLimits.marriedOneCovered as IRALimitSet;
         lowerLimit = limits.full || limits.phaseOutStart;
         upperLimit = limits.phaseOutEnd;
         phaseOutRange = upperLimit - lowerLimit;
@@ -81,14 +81,14 @@ export function calculateTraditionalIRADeductible(
             maxContribution: maxContribution
         };
     } else if ((filingStatus === 'single' || filingStatus === 'headOfHousehold') && isCoveredByEmployerPlan) {
-        const limits = filingStatus === 'single' 
+        const limits = (filingStatus === 'single' 
             ? yearData.traditionalIraDeductionLimits.singleCovered 
-            : yearData.traditionalIraDeductionLimits.headOfHouseholdCovered;
+            : yearData.traditionalIraDeductionLimits.headOfHouseholdCovered) as IRALimitSet;
         lowerLimit = limits.full || limits.phaseOutStart;
         upperLimit = limits.phaseOutEnd;
         phaseOutRange = upperLimit - lowerLimit;
     } else if (filingStatus === 'marriedSeparately' && isCoveredByEmployerPlan) {
-        const limits = yearData.traditionalIraDeductionLimits.marriedSeparateCovered;
+        const limits = yearData.traditionalIraDeductionLimits.marriedSeparateCovered as IRALimitSet;
         lowerLimit = limits.phaseOutStart;
         upperLimit = limits.phaseOutEnd;
         phaseOutRange = upperLimit - lowerLimit;
