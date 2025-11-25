@@ -25,6 +25,8 @@ export interface TaxCalculatorInputs {
     isSpouseCoveredByEmployerPlan: boolean;
     spouseIraContributions: number;
     isSpouseAge50Plus: boolean;
+    isNonDeductibleIRA: boolean;
+    isSpouseNonDeductibleIRA: boolean;
 }
 
 export interface TaxCalculatorState {
@@ -53,6 +55,8 @@ const defaultInputs: TaxCalculatorInputs = {
     isSpouseCoveredByEmployerPlan: false,
     spouseIraContributions: 0,
     isSpouseAge50Plus: false,
+    isNonDeductibleIRA: false,
+    isSpouseNonDeductibleIRA: false,
 };
 
 export function useTaxCalculator() {
@@ -82,7 +86,9 @@ export function useTaxCalculator() {
                 inputs.isCoveredByEmployerPlan,
                 inputs.isSpouseCoveredByEmployerPlan,
                 inputs.spouseIraContributions,
-                inputs.isSpouseAge50Plus
+                inputs.isSpouseAge50Plus,
+                inputs.isNonDeductibleIRA,
+                inputs.isSpouseNonDeductibleIRA
             );
         } catch (error) {
             console.error('Tax calculation error:', error);

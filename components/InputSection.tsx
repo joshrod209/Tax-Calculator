@@ -167,6 +167,22 @@ export default function InputSection({ calculator }: InputSectionProps) {
             <p className="text-xs text-slate-500 mt-1 ml-1">
               {inputs.year} IRS limit: {formatMoney(yearData.iraLimit.standard)} standard; {formatMoney(yearData.iraLimit.max)} with catch-up (age 50+). Deduction eligibility depends on income and employer plan coverage.
             </p>
+            {inputs.iraContributions > 0 && (
+              <div className="mt-2">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={inputs.isNonDeductibleIRA}
+                    onChange={(e) => updateInput('isNonDeductibleIRA', e.target.checked)}
+                    className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm font-semibold text-slate-600">This is a non-deductible Traditional IRA contribution</span>
+                </label>
+                <p className="text-xs text-slate-500 mt-1 ml-1">
+                  Check this if your income exceeds deduction limits but you still want to contribute (useful for Backdoor Roth strategy)
+                </p>
+              </div>
+            )}
           </div>
 
           {inputs.filingStatus === 'marriedJointly' && (
@@ -191,6 +207,22 @@ export default function InputSection({ calculator }: InputSectionProps) {
               <p className="text-xs text-slate-500 mt-1 ml-1">
                 Each spouse can contribute up to {formatMoney(yearData.iraLimit.standard)} ({formatMoney(yearData.iraLimit.max)} with catch-up). Deduction eligibility depends on income and employer plan coverage.
               </p>
+              {inputs.spouseIraContributions > 0 && (
+                <div className="mt-2">
+                  <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      checked={inputs.isSpouseNonDeductibleIRA}
+                      onChange={(e) => updateInput('isSpouseNonDeductibleIRA', e.target.checked)}
+                      className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-semibold text-slate-600">This is a non-deductible Traditional IRA contribution (Spouse)</span>
+                  </label>
+                  <p className="text-xs text-slate-500 mt-1 ml-1">
+                    Check this if spouse's income exceeds deduction limits but you still want to contribute (useful for Backdoor Roth strategy)
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

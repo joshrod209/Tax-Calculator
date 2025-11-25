@@ -121,7 +121,9 @@ export function calculateTax(
     isCoveredByEmployerPlan = false,
     isSpouseCoveredByEmployerPlan = false,
     spouseIraContributions = 0,
-    isSpouseAge50Plus = false
+    isSpouseAge50Plus = false,
+    isNonDeductibleIRA = false,
+    isSpouseNonDeductibleIRA = false
 ): TaxCalculationResult {
     const isEligibleForCatchUp = isAge50Plus || isAge65Plus;
     const isSpouseEligibleForCatchUp = isSpouseAge50Plus || isAge65Plus;
@@ -146,7 +148,8 @@ export function calculateTax(
         year,
         isEligibleForCatchUp
     );
-    const deductibleIraAmount = iraDeductionInfo.deductibleAmount;
+    // If user explicitly marked as non-deductible, override the calculated amount
+    const deductibleIraAmount = isNonDeductibleIRA ? 0 : iraDeductionInfo.deductibleAmount;
     
     let spouseIraDeductionInfo: IRADeductionInfo | null = null;
     let deductibleSpouseIraAmount = 0;
@@ -160,7 +163,8 @@ export function calculateTax(
             year,
             isSpouseEligibleForCatchUp
         );
-        deductibleSpouseIraAmount = spouseIraDeductionInfo.deductibleAmount;
+        // If spouse explicitly marked as non-deductible, override the calculated amount
+        deductibleSpouseIraAmount = isSpouseNonDeductibleIRA ? 0 : spouseIraDeductionInfo.deductibleAmount;
     }
     
     const standardDeduction = calculateStandardDeduction(filingStatus, isAge65Plus, year);

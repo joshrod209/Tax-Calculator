@@ -109,16 +109,22 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
             <div>
               <p className="text-sm font-semibold text-slate-700 mb-1">Your Deductible Amount</p>
               <p className="text-lg font-bold text-indigo-600">
-                {formatMoney(results.iraDeductionInfo.deductibleAmount)}
+                {formatMoney(inputs.isNonDeductibleIRA ? 0 : results.iraDeductionInfo.deductibleAmount)}
               </p>
-              {results.iraDeductionInfo.isFullyDeductible && (
-                <p className="text-xs text-green-600 mt-1">✓ Fully deductible</p>
-              )}
-              {results.iraDeductionInfo.isPartiallyDeductible && (
-                <p className="text-xs text-yellow-600 mt-1">⚠ Partially deductible</p>
-              )}
-              {results.iraDeductionInfo.isNonDeductible && (
-                <p className="text-xs text-red-600 mt-1">✗ Not deductible</p>
+              {inputs.isNonDeductibleIRA ? (
+                <p className="text-xs text-blue-600 mt-1">ℹ Non-deductible contribution (marked by user)</p>
+              ) : (
+                <>
+                  {results.iraDeductionInfo.isFullyDeductible && (
+                    <p className="text-xs text-green-600 mt-1">✓ Fully deductible</p>
+                  )}
+                  {results.iraDeductionInfo.isPartiallyDeductible && (
+                    <p className="text-xs text-yellow-600 mt-1">⚠ Partially deductible</p>
+                  )}
+                  {results.iraDeductionInfo.isNonDeductible && (
+                    <p className="text-xs text-red-600 mt-1">✗ Not deductible</p>
+                  )}
+                </>
               )}
             </div>
 
@@ -139,7 +145,7 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                     </div>
                   )}
                 </div>
-                {results.marginalRate > 0 && (
+                {results.marginalRate > 0 && !inputs.isNonDeductibleIRA && (
                   <div className="mt-3 pt-3 border-t border-indigo-200">
                     <p className="text-xs text-slate-600">
                       <strong>Tax Savings:</strong> Contributing <strong className="text-indigo-700">{formatMoney(iraRecommendations.recommendedTrad)}</strong> to Traditional IRA at your current tax rate of <strong className="text-indigo-700">{formatPercentage(results.marginalRate)}</strong> will reduce your tax liability by approximately <strong className="text-indigo-700">{formatMoney(iraRecommendations.recommendedTrad * (results.marginalRate / 100))}</strong>.
@@ -171,13 +177,36 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
       )}
 
       {/* Spouse IRA Recommendations */}
-      {inputs.filingStatus === 'marriedJointly' && spouseIraRecommendations && (
+      {inputs.filingStatus === 'marriedJointly' && spouseIraRecommendations && results.spouseIraDeductionInfo && (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-4 text-slate-400 uppercase text-xs font-bold tracking-wider">
             <Info className="w-4 h-4" /> Spouse IRA Recommendations
           </div>
           
           <div className="space-y-3">
+            {inputs.spouseIraContributions > 0 && (
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-slate-700 mb-1">Spouse Deductible Amount</p>
+                <p className="text-lg font-bold text-purple-600">
+                  {formatMoney(inputs.isSpouseNonDeductibleIRA ? 0 : results.spouseIraDeductionInfo.deductibleAmount)}
+                </p>
+                {inputs.isSpouseNonDeductibleIRA ? (
+                  <p className="text-xs text-blue-600 mt-1">ℹ Non-deductible contribution (marked by user)</p>
+                ) : (
+                  <>
+                    {results.spouseIraDeductionInfo.isFullyDeductible && (
+                      <p className="text-xs text-green-600 mt-1">✓ Fully deductible</p>
+                    )}
+                    {results.spouseIraDeductionInfo.isPartiallyDeductible && (
+                      <p className="text-xs text-yellow-600 mt-1">⚠ Partially deductible</p>
+                    )}
+                    {results.spouseIraDeductionInfo.isNonDeductible && (
+                      <p className="text-xs text-red-600 mt-1">✗ Not deductible</p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
             {spouseIraRecommendations.recommendedTrad > 0 && (
               <div className="bg-purple-50 rounded-xl p-4">
                 <p className="text-xs font-semibold text-purple-700 mb-2">Recommended Contribution Strategy</p>
@@ -195,7 +224,7 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                     </div>
                   )}
                 </div>
-                {results.marginalRate > 0 && (
+                {results.marginalRate > 0 && !inputs.isSpouseNonDeductibleIRA && (
                   <div className="mt-3 pt-3 border-t border-purple-200">
                     <p className="text-xs text-slate-600">
                       <strong>Tax Savings:</strong> Contributing <strong className="text-purple-700">{formatMoney(spouseIraRecommendations.recommendedTrad)}</strong> to Traditional IRA at your current tax rate of <strong className="text-purple-700">{formatPercentage(results.marginalRate)}</strong> will reduce your tax liability by approximately <strong className="text-purple-700">{formatMoney(spouseIraRecommendations.recommendedTrad * (results.marginalRate / 100))}</strong>.
