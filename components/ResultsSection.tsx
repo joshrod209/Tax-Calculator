@@ -327,7 +327,7 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
       )}
 
       {/* Savings Tips */}
-      {(results.potentialSavings401k || (results.potentialSavingsIRA && results.iraDeductionInfo.deductibleAmount > 0)) && (
+      {(results.potentialSavings401k || results.potentialSavingsMax401k || (results.potentialSavingsIRA && results.iraDeductionInfo.deductibleAmount > 0)) && (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-4 text-slate-400 uppercase text-xs font-bold tracking-wider">
             <TrendingUp className="w-4 h-4" /> Tax Bracket & Savings Tips
@@ -338,6 +338,22 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
               <div className="bg-green-50 rounded-xl p-4">
                 <p className="text-sm font-semibold text-green-700 mb-1">Increase 401(k) by $1,000</p>
                 <p className="text-xs text-slate-600">Save approximately {formatMoney(results.potentialSavings401k.taxSavings)} in taxes</p>
+              </div>
+            )}
+            {results.potentialSavingsMax401k && results.maxAdditional401k > 0 && (
+              <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+                <p className="text-sm font-semibold text-emerald-700 mb-2">Maximize Your 401(k) Contributions</p>
+                <div className="space-y-1 text-xs text-slate-700">
+                  <p>
+                    <strong>Remaining space:</strong> {formatMoney(results.maxAdditional401k)} of {formatMoney(results.retirementLimit)} limit
+                  </p>
+                  <p>
+                    <strong>Current contribution:</strong> {formatMoney(results.retirementContributions)}
+                  </p>
+                  <p className="pt-2 border-t border-emerald-200">
+                    <strong className="text-emerald-700">Potential tax savings:</strong> Contributing the remaining {formatMoney(results.maxAdditional401k)} could save you approximately <strong className="text-emerald-700">{formatMoney(results.potentialSavingsMax401k.taxSavings)}</strong> in taxes this year.
+                  </p>
+                </div>
               </div>
             )}
             {results.potentialSavingsIRA && results.iraDeductionInfo.deductibleAmount > 0 && (
