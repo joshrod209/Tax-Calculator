@@ -125,3 +125,66 @@ export function getBracketInfo(bracket: { rate: number }) {
     };
 }
 
+export interface TaxBracketBreakdown {
+    rate: number;
+    ratePercent: number;
+    min: number;
+    max: number;
+    incomeInBracket: number;
+    taxInBracket: number;
+    isActive: boolean;
+}
+
+/**
+ * Calculate tax bracket breakdown showing how much income is taxed at each rate
+ */
+export function calculateTaxBracketBreakdown(
+    taxableIncome: number,
+    filingStatus: FilingStatus,
+    year: TaxYear
+): TaxBracketBreakdown[] {
+    const yearData = getTaxYearData(year);
+    const brackets = yearData.brackets[filingStatus];
+    const breakdown: TaxBracketBreakdown[] = [];
+    
+    for (const bracket of brackets) {
+        let incomeInBracket = 0;
+        let taxInBracket = 0;
+        let isActive = false;
+        
+        if (taxableIncome <= bracket.min) {
+            // User's income hasn't reached this bracket yet
+            incomeInBracket = 0;
+            taxInBracket = 0;
+            isActive = false;
+        } else if (taxableIncome >= bracket.max) {
+            // User's income fills this entire bracket
+            incomeInBracket = bracket.max - bracket.min;
+            taxInBracket = incomeInBracket * bracket.rate;
+            isActive = false;
+        } else {
+            // User's income is within this bracket (current bracket)
+            incomeInBracket = taxableIncome - bracket.min;
+            taxInBracket = incomeInBracket * bracket.rate;
+            isActive = true;
+        }
+        
+        breakdown.push({
+            rate: bracket.rate,
+            ratePercent: Math.round(bracket.rate * 100),
+            min: bracket.min,
+            max: bracket.max === Infinity ? 999999999 : bracket.max,
+            incomeInBracket,
+            taxInBracket,
+            isActive
+        });
+        
+        // Stop after the active bracket
+        if (isActive) {
+            break;
+        }
+    }
+    
+    return breakdown;
+}
+

@@ -1,8 +1,9 @@
 'use client'
 
-import { PieChart, TrendingUp, Info } from 'lucide-react'
+import { useState } from 'react'
+import { PieChart, TrendingUp, Info, ChevronDown, ChevronUp } from 'lucide-react'
 import { useTaxCalculator } from '@/hooks/useTaxCalculator'
-import { formatMoney, formatPercentage } from '@/lib/utils'
+import { formatMoney, formatPercentage, calculateTaxBracketBreakdown } from '@/lib/utils'
 import { calculateIRAContributionRecommendations } from '@/lib/ira-calculations'
 
 interface ResultsSectionProps {
@@ -11,6 +12,11 @@ interface ResultsSectionProps {
 
 export default function ResultsSection({ calculator }: ResultsSectionProps) {
   const { inputs, results, iraRecommendations, spouseIraRecommendations } = calculator
+  const [isBreakdownExpanded, setIsBreakdownExpanded] = useState(false)
+  
+  const bracketBreakdown = results && inputs.filingStatus 
+    ? calculateTaxBracketBreakdown(results.taxableIncome, inputs.filingStatus, inputs.year)
+    : []
 
   if (!results || !inputs.filingStatus) {
     return (
@@ -95,6 +101,71 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
               <span className="text-slate-900 font-bold">{formatMoney(results.taxObligation)}</span>
             </div>
           </div>
+
+          {/* Tax Bracket Breakdown - Expandable */}
+          {bracketBreakdown.length > 0 && (
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <button
+                onClick={() => setIsBreakdownExpanded(!isBreakdownExpanded)}
+                className="w-full flex items-center justify-between text-left hover:bg-slate-50 rounded-lg p-2 transition-colors"
+              >
+                <span className="text-sm font-semibold text-slate-700">Tax Bracket Breakdown</span>
+                {isBreakdownExpanded ? (
+                  <ChevronUp className="w-4 h-4 text-slate-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-500" />
+                )}
+              </button>
+              
+              {isBreakdownExpanded && (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        <th className="text-left py-2 px-2 text-slate-600 font-semibold">Tax Rate</th>
+                        <th className="text-left py-2 px-2 text-slate-600 font-semibold">Income Range</th>
+                        <th className="text-right py-2 px-2 text-slate-600 font-semibold">Income in Bracket</th>
+                        <th className="text-right py-2 px-2 text-slate-600 font-semibold">Tax at This Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bracketBreakdown.map((bracket, index) => (
+                        <tr
+                          key={index}
+                          className={`border-b border-slate-100 ${
+                            bracket.isActive ? 'bg-indigo-50' : index % 2 === 0 ? 'bg-white' : 'bg-slate-50'
+                          }`}
+                        >
+                          <td className="py-2 px-2">
+                            <span className={`font-semibold ${bracket.isActive ? 'text-indigo-700' : 'text-slate-700'}`}>
+                              {bracket.ratePercent}%
+                            </span>
+                          </td>
+                          <td className="py-2 px-2 text-slate-600">
+                            {formatMoney(bracket.min)} - {bracket.max === 999999999 ? '∞' : formatMoney(bracket.max)}
+                          </td>
+                          <td className="py-2 px-2 text-right font-medium text-slate-900">
+                            {formatMoney(bracket.incomeInBracket)}
+                          </td>
+                          <td className="py-2 px-2 text-right font-semibold text-slate-900">
+                            {formatMoney(bracket.taxInBracket)}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="border-t-2 border-slate-300 bg-slate-100">
+                        <td colSpan={3} className="py-2 px-2 font-semibold text-slate-700">
+                          Total Tax (before dependent credit)
+                        </td>
+                        <td className="py-2 px-2 text-right font-bold text-slate-900">
+                          {formatMoney(bracketBreakdown.reduce((sum, b) => sum + b.taxInBracket, 0))}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
