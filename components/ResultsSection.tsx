@@ -31,7 +31,7 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
   const takeHome = results.grossIncome - results.taxObligation - results.totalDeductions
 
   return (
-    <div className="sticky top-8 space-y-6">
+    <div className="sticky top-8 space-y-6" data-results-section>
       {/* Main Result Card */}
       <div className="bg-indigo-900 text-white rounded-3xl p-8 shadow-xl shadow-indigo-900/20 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500 rounded-full mix-blend-overlay filter blur-3xl opacity-20 -mr-16 -mt-16"></div>

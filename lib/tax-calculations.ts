@@ -188,10 +188,16 @@ export function calculateTax(
     
     const effectiveRate = grossIncome > 0 ? (taxObligation / grossIncome) * 100 : 0;
     
-    const totalDeductions = retirementContributions + iraContributions + 
-        (filingStatus === 'marriedJointly' ? spouseIraContributions : 0) + 
-        hsaContributions + healthInsurancePremiums + fsaContributions + 
-        studentLoanInterest + educatorExpenses;
+    // Total deductions should only include deductible amounts
+    // Non-deductible IRA contributions are NOT pre-tax deductions
+    const totalDeductions = retirementContributions + 
+        deductibleIraAmount + 
+        deductibleSpouseIraAmount + 
+        hsaContributions + 
+        healthInsurancePremiums + 
+        fsaContributions + 
+        studentLoanInterest + 
+        educatorExpenses;
     
     const retirementLimit = isEligibleForCatchUp ? yearData.retirementLimit.max : yearData.retirementLimit.standard;
     const iraLimit = isEligibleForCatchUp ? yearData.iraLimit.max : yearData.iraLimit.standard;
