@@ -275,15 +275,44 @@ export default function InputSection({ calculator }: InputSectionProps) {
 
       {/* Pre-Tax Contributions Section */}
       <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-        <div className="flex items-center gap-2 mb-4 text-slate-400 uppercase text-xs font-bold tracking-wider">
+        <div className="flex items-center gap-2 mb-6 text-slate-400 uppercase text-xs font-bold tracking-wider">
           <TrendingDown className="w-4 h-4" /> Pre-Tax Contributions
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="space-y-6">
+          {/* Employer Plan Coverage - Important context for IRA eligibility */}
+          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+            <p className="text-xs font-semibold text-slate-700 mb-3">Employer Retirement Plan Coverage</p>
+            <p className="text-xs text-slate-500 mb-3">This affects Traditional IRA deduction eligibility</p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={inputs.isCoveredByEmployerPlan}
+                  onChange={(e) => updateInput('isCoveredByEmployerPlan', e.target.checked)}
+                  className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                />
+                <span className="text-sm font-medium text-slate-700">You are covered by an employer retirement plan</span>
+              </label>
+              {inputs.filingStatus === 'marriedJointly' && (
+                <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={inputs.isSpouseCoveredByEmployerPlan}
+                    onChange={(e) => updateInput('isSpouseCoveredByEmployerPlan', e.target.checked)}
+                    className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm font-medium text-slate-700">Spouse is covered by an employer retirement plan</span>
+                </label>
+              )}
+            </div>
+          </div>
+
+          {/* 401(k) / 403(b) Section */}
           <div>
-            <div className="flex justify-between mb-2 ml-1">
-              <label className="block text-sm font-semibold text-slate-600">401(k) / 403(b)</label>
-              <span className="text-xs text-indigo-500 font-medium bg-indigo-50 px-2 py-0.5 rounded-full">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-semibold text-slate-700">401(k) / 403(b) Contributions</label>
+              <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-3 py-1 rounded-full">
                 Max {formatMoney(retirementLimit)}
               </span>
             </div>
@@ -298,120 +327,101 @@ export default function InputSection({ calculator }: InputSectionProps) {
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               />
             </div>
-            <p className="text-xs text-slate-500 mt-1 ml-1">
-              {inputs.year} IRS limit: {formatMoney(yearData.retirementLimit.standard)} standard; {formatMoney(yearData.retirementLimit.max)} with catch-up (age 50+)
+            <p className="text-xs text-slate-500 mt-2">
+              {inputs.year} limit: {formatMoney(yearData.retirementLimit.standard)} standard • {formatMoney(yearData.retirementLimit.max)} with catch-up (age 50+)
             </p>
           </div>
 
-          <div>
-            <div className="flex justify-between mb-2 ml-1">
-              <label className="block text-sm font-semibold text-slate-600">Traditional IRA (Your)</label>
-              <span className="text-xs text-indigo-500 font-medium bg-indigo-50 px-2 py-0.5 rounded-full">
-                Max {formatMoney(iraLimit)}
-              </span>
-            </div>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
-              <input 
-                type="number" 
-                value={inputs.iraContributions || ''}
-                onChange={(e) => updateInput('iraContributions', parseFloat(e.target.value) || 0)}
-                onFocus={handlePrimaryIRAFocus}
-                placeholder="0" 
-                min="0"
-                className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              />
-            </div>
-            <p className="text-xs text-slate-500 mt-1 ml-1">
-              {inputs.year} IRS limit: {formatMoney(yearData.iraLimit.standard)} standard; {formatMoney(yearData.iraLimit.max)} with catch-up (age 50+). Deduction eligibility depends on income and employer plan coverage.
-            </p>
-            {inputs.iraContributions > 0 && (
-              <div className="mt-2">
-                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
+          {/* Traditional IRA Section */}
+          <div className="border-t border-slate-200 pt-6">
+            <h3 className="text-sm font-semibold text-slate-700 mb-4">Traditional IRA Contributions</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Your IRA */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-semibold text-slate-600">Your IRA</label>
+                  <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full">
+                    Max {formatMoney(iraLimit)}
+                  </span>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
                   <input 
-                    type="checkbox" 
-                    checked={inputs.isNonDeductibleIRA}
-                    onChange={(e) => updateInput('isNonDeductibleIRA', e.target.checked)}
-                    className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                    type="number" 
+                    value={inputs.iraContributions || ''}
+                    onChange={(e) => updateInput('iraContributions', parseFloat(e.target.value) || 0)}
+                    onFocus={handlePrimaryIRAFocus}
+                    placeholder="0" 
+                    min="0"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                   />
-                  <span className="text-sm font-semibold text-slate-600">This is a non-deductible Traditional IRA contribution</span>
-                </label>
-                <p className="text-xs text-slate-500 mt-1 ml-1">
-                  Check this if your income exceeds deduction limits but you still want to contribute (useful for Backdoor Roth strategy)
+                </div>
+                <p className="text-xs text-slate-500">
+                  {inputs.year} limit: {formatMoney(yearData.iraLimit.standard)} standard • {formatMoney(yearData.iraLimit.max)} catch-up
                 </p>
+                {inputs.iraContributions > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-100">
+                    <label className="flex items-start gap-2 cursor-pointer group">
+                      <input 
+                        type="checkbox" 
+                        checked={inputs.isNonDeductibleIRA}
+                        onChange={(e) => updateInput('isNonDeductibleIRA', e.target.checked)}
+                        className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 mt-0.5"
+                      />
+                      <div>
+                        <span className="text-xs font-medium text-slate-700 group-hover:text-slate-900">Non-deductible contribution</span>
+                        <p className="text-xs text-slate-500 mt-0.5">Useful for Backdoor Roth strategy</p>
+                      </div>
+                    </label>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {inputs.filingStatus === 'marriedJointly' && (
-            <div>
-              <div className="flex justify-between mb-2 ml-1">
-                <label className="block text-sm font-semibold text-slate-600">Traditional IRA (Spouse)</label>
-                <span className="text-xs text-indigo-500 font-medium bg-indigo-50 px-2 py-0.5 rounded-full">
-                  Max {formatMoney(iraLimit)}
-                </span>
-              </div>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
-                <input 
-                  type="number" 
-                  value={inputs.spouseIraContributions || ''}
-                  onChange={(e) => updateInput('spouseIraContributions', parseFloat(e.target.value) || 0)}
-                  onFocus={handleSpouseIRAFocus}
-                  placeholder="0" 
-                  min="0"
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                />
-              </div>
-              <p className="text-xs text-slate-500 mt-1 ml-1">
-                Each spouse can contribute up to {formatMoney(yearData.iraLimit.standard)} ({formatMoney(yearData.iraLimit.max)} with catch-up). Deduction eligibility depends on income and employer plan coverage.
-              </p>
-              {inputs.spouseIraContributions > 0 && (
-                <div className="mt-2">
-                  <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
+              {/* Spouse IRA */}
+              {inputs.filingStatus === 'marriedJointly' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-semibold text-slate-600">Spouse IRA</label>
+                    <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full">
+                      Max {formatMoney(iraLimit)}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
                     <input 
-                      type="checkbox" 
-                      checked={inputs.isSpouseNonDeductibleIRA}
-                      onChange={(e) => updateInput('isSpouseNonDeductibleIRA', e.target.checked)}
-                      className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                      type="number" 
+                      value={inputs.spouseIraContributions || ''}
+                      onChange={(e) => updateInput('spouseIraContributions', parseFloat(e.target.value) || 0)}
+                      onFocus={handleSpouseIRAFocus}
+                      placeholder="0" 
+                      min="0"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                     />
-                    <span className="text-sm font-semibold text-slate-600">This is a non-deductible Traditional IRA contribution (Spouse)</span>
-                  </label>
-                  <p className="text-xs text-slate-500 mt-1 ml-1">
-                    Check this if spouse's income exceeds deduction limits but you still want to contribute (useful for Backdoor Roth strategy)
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {inputs.year} limit: {formatMoney(yearData.iraLimit.standard)} standard • {formatMoney(yearData.iraLimit.max)} catch-up
                   </p>
+                  {inputs.spouseIraContributions > 0 && (
+                    <div className="mt-3 pt-3 border-t border-slate-100">
+                      <label className="flex items-start gap-2 cursor-pointer group">
+                        <input 
+                          type="checkbox" 
+                          checked={inputs.isSpouseNonDeductibleIRA}
+                          onChange={(e) => updateInput('isSpouseNonDeductibleIRA', e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 mt-0.5"
+                        />
+                        <div>
+                          <span className="text-xs font-medium text-slate-700 group-hover:text-slate-900">Non-deductible contribution</span>
+                          <p className="text-xs text-slate-500 mt-0.5">Useful for Backdoor Roth strategy</p>
+                        </div>
+                      </label>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-
-          <div className="col-span-1 md:col-span-2">
-            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
-              <input 
-                type="checkbox" 
-                checked={inputs.isCoveredByEmployerPlan}
-                onChange={(e) => updateInput('isCoveredByEmployerPlan', e.target.checked)}
-                className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-              />
-              <span className="text-sm font-semibold text-slate-600">Covered by employer retirement plan</span>
-            </label>
-            <p className="text-xs text-slate-500 mt-1 ml-1">Affects Traditional IRA deduction eligibility</p>
           </div>
-
-          {inputs.filingStatus === 'marriedJointly' && (
-            <div className="col-span-1 md:col-span-2">
-              <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
-                <input 
-                  type="checkbox" 
-                  checked={inputs.isSpouseCoveredByEmployerPlan}
-                  onChange={(e) => updateInput('isSpouseCoveredByEmployerPlan', e.target.checked)}
-                  className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-                />
-                <span className="text-sm font-semibold text-slate-600">Spouse covered by employer retirement plan</span>
-              </label>
-              <p className="text-xs text-slate-500 mt-1 ml-1">Only applies if married filing jointly</p>
-            </div>
-          )}
 
           <div>
             <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">HSA Coverage Type</label>
