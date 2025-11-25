@@ -15,11 +15,10 @@ export function getTaxYearData(year: TaxYear) {
 }
 
 /**
- * Get current/default tax year (most recent available)
+ * Get current/default tax year (defaults to 2025)
  */
 export function getCurrentTaxYear(): TaxYear {
-    const years = getAvailableYears();
-    return (years[0] || 2025) as TaxYear;
+    return 2025 as TaxYear;
 }
 
 /**
@@ -42,6 +41,7 @@ export function calculateStandardDeduction(filingStatus: FilingStatus, isAge65Pl
 export function calculateMAGI(
     grossIncome: number,
     retirementContributions: number,
+    spouseRetirementContributions: number,
     hsaContributions: number,
     healthInsurancePremiums: number,
     fsaContributions: number,
@@ -50,6 +50,7 @@ export function calculateMAGI(
 ): number {
     let magi = grossIncome;
     magi = Math.max(0, magi - retirementContributions);
+    magi = Math.max(0, magi - spouseRetirementContributions);
     magi = Math.max(0, magi - hsaContributions);
     magi = Math.max(0, magi - healthInsurancePremiums);
     magi = Math.max(0, magi - fsaContributions);

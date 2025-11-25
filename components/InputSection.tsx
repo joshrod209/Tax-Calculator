@@ -18,9 +18,12 @@ export default function InputSection({ calculator }: InputSectionProps) {
   const { inputs, updateInput, availableYears } = calculator
   const yearData = getTaxYearData(inputs.year)
   const isEligibleForCatchUp = inputs.isAge50Plus || inputs.isAge65Plus
+  const isSpouseEligibleForCatchUp = inputs.isSpouseAge50Plus || inputs.isSpouseAge65Plus
   
   const retirementLimit = isEligibleForCatchUp ? yearData.retirementLimit.max : yearData.retirementLimit.standard
   const iraLimit = isEligibleForCatchUp ? yearData.iraLimit.max : yearData.iraLimit.standard
+  const spouseRetirementLimit = isSpouseEligibleForCatchUp ? yearData.retirementLimit.max : yearData.retirementLimit.standard
+  const spouseIraLimit = isSpouseEligibleForCatchUp ? yearData.iraLimit.max : yearData.iraLimit.standard
 
   // Modal state
   const [showPrimaryIRAWarning, setShowPrimaryIRAWarning] = useState(false)
@@ -31,6 +34,7 @@ export default function InputSection({ calculator }: InputSectionProps) {
     return calculateMAGI(
       inputs.grossIncome,
       inputs.retirementContributions,
+      inputs.spouseRetirementContributions,
       inputs.hsaContributions,
       inputs.healthInsurancePremiums,
       inputs.fsaContributions,
@@ -40,6 +44,7 @@ export default function InputSection({ calculator }: InputSectionProps) {
   }, [
     inputs.grossIncome,
     inputs.retirementContributions,
+    inputs.spouseRetirementContributions,
     inputs.hsaContributions,
     inputs.healthInsurancePremiums,
     inputs.fsaContributions,
@@ -95,21 +100,21 @@ export default function InputSection({ calculator }: InputSectionProps) {
       inputs.isCoveredByEmployerPlan, // Treat primary as "spouse" for this check
       0, // Check with $0 contribution
       inputs.year,
-      isEligibleForCatchUp
+      isSpouseEligibleForCatchUp
     )
     
     const rothEligibility = checkRothIRAEligibility(
       currentMAGI,
       inputs.filingStatus,
       inputs.year,
-      isEligibleForCatchUp
+      isSpouseEligibleForCatchUp
     )
 
     return {
       deductionInfo,
       rothEligible: rothEligibility.isEligible
     }
-  }, [currentMAGI, inputs.filingStatus, inputs.isCoveredByEmployerPlan, inputs.isSpouseCoveredByEmployerPlan, inputs.year, isEligibleForCatchUp])
+  }, [currentMAGI, inputs.filingStatus, inputs.isCoveredByEmployerPlan, inputs.isSpouseCoveredByEmployerPlan, inputs.year, isSpouseEligibleForCatchUp, inputs.isSpouseAge50Plus, inputs.isSpouseAge65Plus])
 
   // Handle primary IRA input focus
   const handlePrimaryIRAFocus = () => {
@@ -268,6 +273,40 @@ export default function InputSection({ calculator }: InputSectionProps) {
             <p className="text-xs text-slate-500 mt-1 ml-1">Additional standard deduction</p>
           </div>
 
+          {/* Spouse Age Checkboxes - Show for any filing status that includes a spouse */}
+          {(inputs.filingStatus === 'marriedJointly' || inputs.filingStatus === 'marriedSeparately') && (
+            <>
+              <div className="col-span-1 md:col-span-2 border-t border-slate-200 pt-4">
+                <p className="text-xs font-semibold text-slate-500 mb-3 uppercase tracking-wider">Spouse Information</p>
+              </div>
+              <div className="col-span-1 md:col-span-2">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={inputs.isSpouseAge50Plus}
+                    onChange={(e) => updateInput('isSpouseAge50Plus', e.target.checked)}
+                    className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm font-semibold text-slate-600">Spouse age 50 or older (catch-up contributions eligible)</span>
+                </label>
+                <p className="text-xs text-slate-500 mt-1 ml-1">Enables higher 401(k) and IRA contribution limits for spouse</p>
+              </div>
+
+              <div className="col-span-1 md:col-span-2">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={inputs.isSpouseAge65Plus}
+                    onChange={(e) => updateInput('isSpouseAge65Plus', e.target.checked)}
+                    className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm font-semibold text-slate-600">Spouse age 65 or older</span>
+                </label>
+                <p className="text-xs text-slate-500 mt-1 ml-1">Additional standard deduction for spouse</p>
+              </div>
+            </>
+          )}
+
           <div className="col-span-1 md:col-span-2">
             <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">Number of Dependents</label>
             <input 
@@ -319,43 +358,87 @@ export default function InputSection({ calculator }: InputSectionProps) {
           </div>
 
           {/* 401(k) / 403(b) Section */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-semibold text-slate-700">401(k) / 403(b) Contributions</label>
-                <HelpTooltip content="Pre-tax contributions to employer-sponsored retirement plans. These reduce your taxable income dollar-for-dollar." />
+          <div className="space-y-5">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-slate-700">401(k) / 403(b) Contributions</label>
+                  <HelpTooltip content="Pre-tax contributions to employer-sponsored retirement plans. These reduce your taxable income dollar-for-dollar." />
+                </div>
+                <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-3 py-1 rounded-full">
+                  Max {formatMoney(retirementLimit)}
+                </span>
               </div>
-              <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-3 py-1 rounded-full">
-                Max {formatMoney(retirementLimit)}
-              </span>
-            </div>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
-              <input 
-                type="number" 
-                value={inputs.retirementContributions || ''}
-                onChange={(e) => {
-                  const value = parseFloat(e.target.value) || 0
-                  updateInput('retirementContributions', Math.min(value, retirementLimit))
-                }}
-                placeholder="0" 
-                min="0"
-                max={retirementLimit}
-                className={`w-full bg-slate-50 border ${
-                  inputs.retirementContributions > retirementLimit ? 'border-red-300' : 
-                  inputs.retirementContributions > 0 && inputs.retirementContributions <= retirementLimit ? 'border-green-300' : 
-                  'border-slate-200'
-                } text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
-              />
-            </div>
-            {inputs.retirementContributions > retirementLimit && (
-              <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                <span>⚠</span> Exceeds maximum limit of {formatMoney(retirementLimit)}
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                <input 
+                  type="number" 
+                  value={inputs.retirementContributions || ''}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 0
+                    updateInput('retirementContributions', Math.min(value, retirementLimit))
+                  }}
+                  placeholder="0" 
+                  min="0"
+                  max={retirementLimit}
+                  className={`w-full bg-slate-50 border ${
+                    inputs.retirementContributions > retirementLimit ? 'border-red-300' : 
+                    inputs.retirementContributions > 0 && inputs.retirementContributions <= retirementLimit ? 'border-green-300' : 
+                    'border-slate-200'
+                  } text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
+                />
+              </div>
+              {inputs.retirementContributions > retirementLimit && (
+                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                  <span>⚠</span> Exceeds maximum limit of {formatMoney(retirementLimit)}
+                </p>
+              )}
+              <p className="text-xs text-slate-500 mt-2">
+                {inputs.year} limit: {formatMoney(yearData.retirementLimit.standard)} standard • {formatMoney(yearData.retirementLimit.max)} with catch-up (age 50+)
               </p>
+            </div>
+
+            {/* Spouse 401(k) / 403(b) - Only show when spouse is covered by employer plan */}
+            {inputs.filingStatus === 'marriedJointly' && inputs.isSpouseCoveredByEmployerPlan && (
+              <div className="border-t border-slate-200 pt-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-semibold text-slate-700">Spouse 401(k) / 403(b) Contributions</label>
+                    <HelpTooltip content="Spouse's pre-tax contributions to employer-sponsored retirement plans. Each spouse has individual contribution limits." />
+                  </div>
+                  <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-3 py-1 rounded-full">
+                    Max {formatMoney(spouseRetirementLimit)}
+                  </span>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                  <input 
+                    type="number" 
+                    value={inputs.spouseRetirementContributions || ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      updateInput('spouseRetirementContributions', Math.min(value, spouseRetirementLimit))
+                    }}
+                    placeholder="0" 
+                    min="0"
+                    max={spouseRetirementLimit}
+                    className={`w-full bg-slate-50 border ${
+                      inputs.spouseRetirementContributions > spouseRetirementLimit ? 'border-red-300' : 
+                      inputs.spouseRetirementContributions > 0 && inputs.spouseRetirementContributions <= spouseRetirementLimit ? 'border-green-300' : 
+                      'border-slate-200'
+                    } text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
+                  />
+                </div>
+                {inputs.spouseRetirementContributions > spouseRetirementLimit && (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <span>⚠</span> Exceeds maximum limit of {formatMoney(spouseRetirementLimit)}
+                  </p>
+                )}
+                <p className="text-xs text-slate-500 mt-2">
+                  {inputs.year} limit: {formatMoney(yearData.retirementLimit.standard)} standard • {formatMoney(yearData.retirementLimit.max)} with catch-up (spouse age 50+)
+                </p>
+              </div>
             )}
-            <p className="text-xs text-slate-500 mt-2">
-              {inputs.year} limit: {formatMoney(yearData.retirementLimit.standard)} standard • {formatMoney(yearData.retirementLimit.max)} with catch-up (age 50+)
-            </p>
           </div>
 
           {/* Traditional IRA Section */}
@@ -429,7 +512,7 @@ export default function InputSection({ calculator }: InputSectionProps) {
                       <HelpTooltip content="Spouse's Traditional IRA contributions. Each spouse has individual contribution limits and deduction eligibility." />
                     </div>
                     <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full">
-                      Max {formatMoney(iraLimit)}
+                      Max {formatMoney(spouseIraLimit)}
                     </span>
                   </div>
                   <div className="relative">
@@ -437,29 +520,29 @@ export default function InputSection({ calculator }: InputSectionProps) {
                     <input 
                       type="number" 
                       value={inputs.spouseIraContributions || ''}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0
-                        updateInput('spouseIraContributions', Math.min(value, iraLimit))
-                      }}
-                      onFocus={handleSpouseIRAFocus}
-                      placeholder="0" 
-                      min="0"
-                      max={iraLimit}
-                      className={`w-full bg-slate-50 border ${
-                        inputs.spouseIraContributions > iraLimit ? 'border-red-300' : 
-                        inputs.spouseIraContributions > 0 && inputs.spouseIraContributions <= iraLimit ? 'border-green-300' : 
-                        'border-slate-200'
-                      } text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
-                    />
-                  </div>
-                  {inputs.spouseIraContributions > iraLimit && (
-                    <p className="text-xs text-red-600 flex items-center gap-1">
-                      <span>⚠</span> Exceeds maximum limit of {formatMoney(iraLimit)}
-                    </p>
-                  )}
-                  <p className="text-xs text-slate-500">
-                    {inputs.year} limit: {formatMoney(yearData.iraLimit.standard)} standard • {formatMoney(yearData.iraLimit.max)} catch-up
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      updateInput('spouseIraContributions', Math.min(value, spouseIraLimit))
+                    }}
+                    onFocus={handleSpouseIRAFocus}
+                    placeholder="0" 
+                    min="0"
+                    max={spouseIraLimit}
+                    className={`w-full bg-slate-50 border ${
+                      inputs.spouseIraContributions > spouseIraLimit ? 'border-red-300' : 
+                      inputs.spouseIraContributions > 0 && inputs.spouseIraContributions <= spouseIraLimit ? 'border-green-300' : 
+                      'border-slate-200'
+                    } text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
+                  />
+                </div>
+                {inputs.spouseIraContributions > spouseIraLimit && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <span>⚠</span> Exceeds maximum limit of {formatMoney(spouseIraLimit)}
                   </p>
+                )}
+                <p className="text-xs text-slate-500">
+                  {inputs.year} limit: {formatMoney(yearData.iraLimit.standard)} standard • {formatMoney(yearData.iraLimit.max)} catch-up (spouse age 50+)
+                </p>
                   {inputs.spouseIraContributions > 0 && (
                     <div className="mt-3 pt-3 border-t border-slate-100">
                       <label className="flex items-start gap-2 cursor-pointer group">

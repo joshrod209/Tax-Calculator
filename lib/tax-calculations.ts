@@ -121,17 +121,20 @@ export function calculateTax(
     isCoveredByEmployerPlan = false,
     isSpouseCoveredByEmployerPlan = false,
     spouseIraContributions = 0,
+    spouseRetirementContributions = 0,
     isSpouseAge50Plus = false,
+    isSpouseAge65Plus = false,
     isNonDeductibleIRA = false,
     isSpouseNonDeductibleIRA = false
 ): TaxCalculationResult {
     const isEligibleForCatchUp = isAge50Plus || isAge65Plus;
-    const isSpouseEligibleForCatchUp = isSpouseAge50Plus || isAge65Plus;
+    const isSpouseEligibleForCatchUp = isSpouseAge50Plus || isSpouseAge65Plus;
     const yearData = getTaxYearData(year);
     
     const magi = calculateMAGI(
         grossIncome,
         retirementContributions,
+        spouseRetirementContributions,
         hsaContributions,
         healthInsurancePremiums,
         fsaContributions,
@@ -171,6 +174,7 @@ export function calculateTax(
     
     let adjustedIncome = Math.max(0, grossIncome - standardDeduction);
     adjustedIncome = Math.max(0, adjustedIncome - retirementContributions);
+    adjustedIncome = Math.max(0, adjustedIncome - spouseRetirementContributions);
     adjustedIncome = Math.max(0, adjustedIncome - deductibleIraAmount - deductibleSpouseIraAmount);
     adjustedIncome = Math.max(0, adjustedIncome - hsaContributions);
     adjustedIncome = Math.max(0, adjustedIncome - healthInsurancePremiums);
@@ -191,6 +195,7 @@ export function calculateTax(
     // Total deductions should only include deductible amounts
     // Non-deductible IRA contributions are NOT pre-tax deductions
     const totalDeductions = retirementContributions + 
+        spouseRetirementContributions +
         deductibleIraAmount + 
         deductibleSpouseIraAmount + 
         hsaContributions + 

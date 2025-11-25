@@ -24,7 +24,9 @@ export interface TaxCalculatorInputs {
     isCoveredByEmployerPlan: boolean;
     isSpouseCoveredByEmployerPlan: boolean;
     spouseIraContributions: number;
+    spouseRetirementContributions: number;
     isSpouseAge50Plus: boolean;
+    isSpouseAge65Plus: boolean;
     isNonDeductibleIRA: boolean;
     isSpouseNonDeductibleIRA: boolean;
 }
@@ -54,7 +56,9 @@ const defaultInputs: TaxCalculatorInputs = {
     isCoveredByEmployerPlan: false,
     isSpouseCoveredByEmployerPlan: false,
     spouseIraContributions: 0,
+    spouseRetirementContributions: 0,
     isSpouseAge50Plus: false,
+    isSpouseAge65Plus: false,
     isNonDeductibleIRA: false,
     isSpouseNonDeductibleIRA: false,
 };
@@ -86,7 +90,9 @@ export function useTaxCalculator() {
                 inputs.isCoveredByEmployerPlan,
                 inputs.isSpouseCoveredByEmployerPlan,
                 inputs.spouseIraContributions,
+                inputs.spouseRetirementContributions,
                 inputs.isSpouseAge50Plus,
+                inputs.isSpouseAge65Plus,
                 inputs.isNonDeductibleIRA,
                 inputs.isSpouseNonDeductibleIRA
             );
@@ -115,7 +121,7 @@ export function useTaxCalculator() {
     const spouseIraRecommendations = useMemo(() => {
         if (!results || inputs.filingStatus !== 'marriedJointly') return null;
 
-        const isSpouseEligibleForCatchUp = inputs.isSpouseAge50Plus || inputs.isAge65Plus;
+        const isSpouseEligibleForCatchUp = inputs.isSpouseAge50Plus || inputs.isSpouseAge65Plus;
         
         return calculateIRAContributionRecommendations(
             results.magi,
