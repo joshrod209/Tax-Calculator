@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Wallet, TrendingDown, GraduationCap, BookOpen } from 'lucide-react'
+import { Wallet, TrendingDown, GraduationCap, BookOpen, Heart, GraduationCap as GradCap } from 'lucide-react'
 import { ChevronDown } from 'lucide-react'
 import { useTaxCalculator } from '@/hooks/useTaxCalculator'
 import { getTaxYearData, calculateMAGI, formatMoney } from '@/lib/utils'
 import { calculateTraditionalIRADeductible, checkRothIRAEligibility } from '@/lib/ira-calculations'
 import IRAWarningModal from './IRAWarningModal'
+import CollapsibleSection from './CollapsibleSection'
+import HelpTooltip from './HelpTooltip'
 
 interface InputSectionProps {
   calculator: ReturnType<typeof useTaxCalculator>
@@ -206,6 +208,8 @@ export default function InputSection({ calculator }: InputSectionProps) {
               <select 
                 value={inputs.filingStatus}
                 onChange={(e) => updateInput('filingStatus', e.target.value as any)}
+                aria-label="Filing Status"
+                aria-required="true"
                 className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-lg font-medium rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               >
                 <option value="">Select filing status</option>
@@ -219,7 +223,10 @@ export default function InputSection({ calculator }: InputSectionProps) {
           </div>
 
           <div className="col-span-1 md:col-span-2">
-            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">Gross Annual Income</label>
+            <div className="flex items-center gap-2 mb-2 ml-1">
+              <label className="block text-sm font-semibold text-slate-600">Gross Annual Income</label>
+              <HelpTooltip content="Your total annual income before any deductions. This is your starting point for tax calculations." />
+            </div>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
               <input 
@@ -227,6 +234,9 @@ export default function InputSection({ calculator }: InputSectionProps) {
                 value={inputs.grossIncome || ''}
                 onChange={(e) => updateInput('grossIncome', parseFloat(e.target.value) || 0)}
                 placeholder="0" 
+                min="0"
+                aria-label="Gross Annual Income"
+                aria-required="true"
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xl font-bold rounded-xl pl-8 pr-4 py-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               />
             </div>
@@ -311,7 +321,10 @@ export default function InputSection({ calculator }: InputSectionProps) {
           {/* 401(k) / 403(b) Section */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="text-sm font-semibold text-slate-700">401(k) / 403(b) Contributions</label>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-slate-700">401(k) / 403(b) Contributions</label>
+                <HelpTooltip content="Pre-tax contributions to employer-sponsored retirement plans. These reduce your taxable income dollar-for-dollar." />
+              </div>
               <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-3 py-1 rounded-full">
                 Max {formatMoney(retirementLimit)}
               </span>
@@ -321,12 +334,25 @@ export default function InputSection({ calculator }: InputSectionProps) {
               <input 
                 type="number" 
                 value={inputs.retirementContributions || ''}
-                onChange={(e) => updateInput('retirementContributions', parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value) || 0
+                  updateInput('retirementContributions', Math.min(value, retirementLimit))
+                }}
                 placeholder="0" 
                 min="0"
-                className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                max={retirementLimit}
+                className={`w-full bg-slate-50 border ${
+                  inputs.retirementContributions > retirementLimit ? 'border-red-300' : 
+                  inputs.retirementContributions > 0 && inputs.retirementContributions <= retirementLimit ? 'border-green-300' : 
+                  'border-slate-200'
+                } text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
               />
             </div>
+            {inputs.retirementContributions > retirementLimit && (
+              <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                <span>⚠</span> Exceeds maximum limit of {formatMoney(retirementLimit)}
+              </p>
+            )}
             <p className="text-xs text-slate-500 mt-2">
               {inputs.year} limit: {formatMoney(yearData.retirementLimit.standard)} standard • {formatMoney(yearData.retirementLimit.max)} with catch-up (age 50+)
             </p>
@@ -340,7 +366,10 @@ export default function InputSection({ calculator }: InputSectionProps) {
               {/* Your IRA */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-semibold text-slate-600">Your IRA</label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-semibold text-slate-600">Your IRA</label>
+                    <HelpTooltip content="Traditional IRA contributions. Deductibility depends on your income (MAGI) and whether you're covered by an employer retirement plan." />
+                  </div>
                   <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full">
                     Max {formatMoney(iraLimit)}
                   </span>
@@ -350,13 +379,26 @@ export default function InputSection({ calculator }: InputSectionProps) {
                   <input 
                     type="number" 
                     value={inputs.iraContributions || ''}
-                    onChange={(e) => updateInput('iraContributions', parseFloat(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      updateInput('iraContributions', Math.min(value, iraLimit))
+                    }}
                     onFocus={handlePrimaryIRAFocus}
                     placeholder="0" 
                     min="0"
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    max={iraLimit}
+                    className={`w-full bg-slate-50 border ${
+                      inputs.iraContributions > iraLimit ? 'border-red-300' : 
+                      inputs.iraContributions > 0 && inputs.iraContributions <= iraLimit ? 'border-green-300' : 
+                      'border-slate-200'
+                    } text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
                   />
                 </div>
+                {inputs.iraContributions > iraLimit && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <span>⚠</span> Exceeds maximum limit of {formatMoney(iraLimit)}
+                  </p>
+                )}
                 <p className="text-xs text-slate-500">
                   {inputs.year} limit: {formatMoney(yearData.iraLimit.standard)} standard • {formatMoney(yearData.iraLimit.max)} catch-up
                 </p>
@@ -382,7 +424,10 @@ export default function InputSection({ calculator }: InputSectionProps) {
               {inputs.filingStatus === 'marriedJointly' && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-semibold text-slate-600">Spouse IRA</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm font-semibold text-slate-600">Spouse IRA</label>
+                      <HelpTooltip content="Spouse's Traditional IRA contributions. Each spouse has individual contribution limits and deduction eligibility." />
+                    </div>
                     <span className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full">
                       Max {formatMoney(iraLimit)}
                     </span>
@@ -392,13 +437,26 @@ export default function InputSection({ calculator }: InputSectionProps) {
                     <input 
                       type="number" 
                       value={inputs.spouseIraContributions || ''}
-                      onChange={(e) => updateInput('spouseIraContributions', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0
+                        updateInput('spouseIraContributions', Math.min(value, iraLimit))
+                      }}
                       onFocus={handleSpouseIRAFocus}
                       placeholder="0" 
                       min="0"
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                      max={iraLimit}
+                      className={`w-full bg-slate-50 border ${
+                        inputs.spouseIraContributions > iraLimit ? 'border-red-300' : 
+                        inputs.spouseIraContributions > 0 && inputs.spouseIraContributions <= iraLimit ? 'border-green-300' : 
+                        'border-slate-200'
+                      } text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
                     />
                   </div>
+                  {inputs.spouseIraContributions > iraLimit && (
+                    <p className="text-xs text-red-600 flex items-center gap-1">
+                      <span>⚠</span> Exceeds maximum limit of {formatMoney(iraLimit)}
+                    </p>
+                  )}
                   <p className="text-xs text-slate-500">
                     {inputs.year} limit: {formatMoney(yearData.iraLimit.standard)} standard • {formatMoney(yearData.iraLimit.max)} catch-up
                   </p>
@@ -423,109 +481,151 @@ export default function InputSection({ calculator }: InputSectionProps) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">HSA Coverage Type</label>
-            <div className="relative">
-              <select 
-                value={inputs.hsaCoverageType}
-                onChange={(e) => updateInput('hsaCoverageType', e.target.value as any)}
-                className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              >
-                <option value="none">No HSA</option>
-                <option value="selfOnly">Self-Only</option>
-                <option value="family">Family</option>
-              </select>
-              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
-            </div>
-          </div>
-
-          {inputs.hsaCoverageType !== 'none' && (
-            <div>
-              <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">HSA Contributions</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
-                <input 
-                  type="number" 
-                  value={inputs.hsaContributions || ''}
-                  onChange={(e) => updateInput('hsaContributions', parseFloat(e.target.value) || 0)}
-                  placeholder="0" 
-                  min="0"
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                />
+          {/* Additional Deductions - Collapsible */}
+          <CollapsibleSection
+            title="Additional Deductions"
+            icon={<TrendingDown className="w-4 h-4 text-slate-500" />}
+            defaultOpen={inputs.hsaCoverageType !== 'none' || inputs.fsaContributions > 0 || inputs.healthInsurancePremiums > 0 || inputs.studentLoanInterest > 0 || inputs.educatorExpenses > 0}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="block text-sm font-semibold text-slate-600">HSA Coverage Type</label>
+                  <HelpTooltip content="Health Savings Account coverage type. Self-only covers one person, Family covers you and dependents." />
+                </div>
+                <div className="relative">
+                  <select 
+                    value={inputs.hsaCoverageType}
+                    onChange={(e) => updateInput('hsaCoverageType', e.target.value as any)}
+                    className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  >
+                    <option value="none">No HSA</option>
+                    <option value="selfOnly">Self-Only</option>
+                    <option value="family">Family</option>
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+                </div>
               </div>
-              <p className="text-xs text-slate-500 mt-1 ml-1">
-                {inputs.year} IRS limit: {inputs.hsaCoverageType === 'selfOnly' 
-                  ? `Self-only ${formatMoney(yearData.hsaLimit.selfOnly)}` 
-                  : `Family ${formatMoney(yearData.hsaLimit.family)}`}
-              </p>
-            </div>
-          )}
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">FSA Contributions</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
-              <input 
-                type="number" 
-                value={inputs.fsaContributions || ''}
-                onChange={(e) => updateInput('fsaContributions', parseFloat(e.target.value) || 0)}
-                placeholder="0" 
-                min="0"
-                className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              />
-            </div>
-            <p className="text-xs text-slate-500 mt-1 ml-1">{inputs.year} IRS limit: {formatMoney(yearData.fsaLimit)}</p>
-          </div>
+              {inputs.hsaCoverageType !== 'none' && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className="block text-sm font-semibold text-slate-600">HSA Contributions</label>
+                    <HelpTooltip content={`Maximum HSA contribution for ${inputs.year}: ${inputs.hsaCoverageType === 'selfOnly' ? formatMoney(yearData.hsaLimit.selfOnly) : formatMoney(yearData.hsaLimit.family)}`} />
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                    <input 
+                      type="number" 
+                      value={inputs.hsaContributions || ''}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0
+                        const max = inputs.hsaCoverageType === 'selfOnly' ? yearData.hsaLimit.selfOnly : yearData.hsaLimit.family
+                        updateInput('hsaContributions', Math.min(value, max))
+                      }}
+                      placeholder="0" 
+                      min="0"
+                      max={inputs.hsaCoverageType === 'selfOnly' ? yearData.hsaLimit.selfOnly : yearData.hsaLimit.family}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {inputs.year} limit: {inputs.hsaCoverageType === 'selfOnly' 
+                      ? formatMoney(yearData.hsaLimit.selfOnly) 
+                      : formatMoney(yearData.hsaLimit.family)}
+                  </p>
+                </div>
+              )}
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">Health Insurance Premiums</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
-              <input 
-                type="number" 
-                value={inputs.healthInsurancePremiums || ''}
-                onChange={(e) => updateInput('healthInsurancePremiums', parseFloat(e.target.value) || 0)}
-                placeholder="0" 
-                min="0"
-                className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              />
-            </div>
-            <p className="text-xs text-slate-500 mt-1 ml-1">Pre-tax health insurance premiums</p>
-          </div>
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="block text-sm font-semibold text-slate-600">FSA Contributions</label>
+                  <HelpTooltip content="Flexible Spending Account contributions are pre-tax deductions that reduce your taxable income." />
+                </div>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                  <input 
+                    type="number" 
+                    value={inputs.fsaContributions || ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      updateInput('fsaContributions', Math.min(value, yearData.fsaLimit))
+                    }}
+                    placeholder="0" 
+                    min="0"
+                    max={yearData.fsaLimit}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  />
+                </div>
+                <p className="text-xs text-slate-500 mt-1">{inputs.year} limit: {formatMoney(yearData.fsaLimit)}</p>
+              </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">Student Loan Interest</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
-              <input 
-                type="number" 
-                value={inputs.studentLoanInterest || ''}
-                onChange={(e) => updateInput('studentLoanInterest', parseFloat(e.target.value) || 0)}
-                placeholder="0" 
-                min="0"
-                max={yearData.studentLoanInterestLimit}
-                className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              />
-            </div>
-            <p className="text-xs text-slate-500 mt-1 ml-1">{inputs.year} IRS limit: {formatMoney(yearData.studentLoanInterestLimit)}</p>
-          </div>
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="block text-sm font-semibold text-slate-600">Health Insurance Premiums</label>
+                  <HelpTooltip content="Pre-tax health insurance premiums paid through your employer that reduce your taxable income." />
+                </div>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                  <input 
+                    type="number" 
+                    value={inputs.healthInsurancePremiums || ''}
+                    onChange={(e) => updateInput('healthInsurancePremiums', parseFloat(e.target.value) || 0)}
+                    placeholder="0" 
+                    min="0"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  />
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Pre-tax health insurance premiums</p>
+              </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">Educator Expenses</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
-              <input 
-                type="number" 
-                value={inputs.educatorExpenses || ''}
-                onChange={(e) => updateInput('educatorExpenses', parseFloat(e.target.value) || 0)}
-                placeholder="0" 
-                min="0"
-                max={yearData.educatorExpensesLimit}
-                className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              />
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="block text-sm font-semibold text-slate-600">Student Loan Interest</label>
+                  <HelpTooltip content={`Maximum deductible student loan interest for ${inputs.year}: ${formatMoney(yearData.studentLoanInterestLimit)}`} />
+                </div>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                  <input 
+                    type="number" 
+                    value={inputs.studentLoanInterest || ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      updateInput('studentLoanInterest', Math.min(value, yearData.studentLoanInterestLimit))
+                    }}
+                    placeholder="0" 
+                    min="0"
+                    max={yearData.studentLoanInterestLimit}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  />
+                </div>
+                <p className="text-xs text-slate-500 mt-1">{inputs.year} limit: {formatMoney(yearData.studentLoanInterestLimit)}</p>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="block text-sm font-semibold text-slate-600">Educator Expenses</label>
+                  <HelpTooltip content={`Maximum educator expense deduction for ${inputs.year}: ${formatMoney(yearData.educatorExpensesLimit)}. Available to K-12 educators for classroom supplies.`} />
+                </div>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                  <input 
+                    type="number" 
+                    value={inputs.educatorExpenses || ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      updateInput('educatorExpenses', Math.min(value, yearData.educatorExpensesLimit))
+                    }}
+                    placeholder="0" 
+                    min="0"
+                    max={yearData.educatorExpensesLimit}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  />
+                </div>
+                <p className="text-xs text-slate-500 mt-1">{inputs.year} limit: {formatMoney(yearData.educatorExpensesLimit)}</p>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 mt-1 ml-1">{inputs.year} IRS limit: {formatMoney(yearData.educatorExpensesLimit)}</p>
-          </div>
+          </CollapsibleSection>
         </div>
       </section>
 

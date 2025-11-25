@@ -20,9 +20,20 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
 
   if (!results || !inputs.filingStatus) {
     return (
-      <div className="sticky top-8 space-y-6">
+      <div className="lg:sticky lg:top-8 space-y-6">
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-          <p className="text-slate-500 text-center">Enter your information to see tax calculations</p>
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 mx-auto bg-indigo-100 rounded-full flex items-center justify-center">
+              <PieChart className="w-8 h-8 text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-slate-700 font-semibold mb-1">Ready to Calculate</p>
+              <p className="text-slate-500 text-sm">Enter your filing status and income to see your tax estimate</p>
+            </div>
+            <div className="pt-4 border-t border-slate-200">
+              <p className="text-xs text-slate-400">Start by selecting your filing status and entering your gross income</p>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -31,22 +42,22 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
   const takeHome = results.grossIncome - results.taxObligation - results.totalDeductions
 
   return (
-    <div className="sticky top-8 space-y-6" data-results-section>
+    <div className="lg:sticky lg:top-8 space-y-6" data-results-section>
       {/* Main Result Card */}
-      <div className="bg-indigo-900 text-white rounded-3xl p-8 shadow-xl shadow-indigo-900/20 relative overflow-hidden">
+      <div className="bg-indigo-900 text-white rounded-3xl p-8 shadow-xl shadow-indigo-900/20 relative overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-900/30">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500 rounded-full mix-blend-overlay filter blur-3xl opacity-20 -mr-16 -mt-16"></div>
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500 rounded-full mix-blend-overlay filter blur-3xl opacity-20 -ml-10 -mb-10"></div>
         
-        <div className="relative z-10">
+        <div className="relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <p className="text-indigo-200 font-medium mb-1">Estimated Take Home Pay</p>
-          <h2 className="text-5xl font-bold tracking-tighter mb-6 font-mono">{formatMoney(takeHome)}</h2>
+          <h2 className="text-5xl font-bold tracking-tighter mb-6 font-mono transition-all duration-300">{formatMoney(takeHome)}</h2>
 
           <div className="grid grid-cols-2 gap-4 bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
-            <div>
+            <div className="transition-all duration-300 hover:bg-white/5 rounded-lg p-2 -m-2">
               <p className="text-indigo-200 text-xs mb-1">Effective Tax Rate</p>
               <p className="text-xl font-bold text-white">{formatPercentage(results.effectiveRate)}</p>
             </div>
-            <div>
+            <div className="transition-all duration-300 hover:bg-white/5 rounded-lg p-2 -m-2">
               <p className="text-indigo-200 text-xs mb-1">Total Tax Owed</p>
               <p className="text-xl font-bold text-white">{formatMoney(results.taxObligation)}</p>
             </div>
