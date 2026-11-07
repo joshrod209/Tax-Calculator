@@ -1,6 +1,6 @@
 name: TaxCalculator
 options:
-  bundleIdPrefix: com.example
+  bundleIdPrefix: com.joshrod209
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -22,8 +22,7 @@ targets:
       - package: TaxEngine
     settings:
       base:
-        # Placeholder: replace with the real App Store bundle id before release
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.TaxCalculator
+        PRODUCT_BUNDLE_IDENTIFIER: com.joshrod209.TaxCalculator
         PRODUCT_NAME: Tax Calculator
         INFOPLIST_KEY_CFBundleDisplayName: Tax Calculator
         GENERATE_INFOPLIST_FILE: YES
