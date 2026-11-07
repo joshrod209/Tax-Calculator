@@ -9,3 +9,8 @@ build
 
 # TypeScript
 tsconfig.tsbuildinfo
+.test-build/
+ios/build/
+ios/TaxEngine/.build/
+ios/TaxEngine/.swiftpm/
+xcuserdata/

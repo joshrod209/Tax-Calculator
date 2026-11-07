@@ -1,0 +1,60 @@
+{
+  "description": "Shared cases for the TypeScript engine (lib/) and the Swift TaxEngine (ios/TaxEngine). Inputs not listed default to 0/false, 2025, single. Expected values are compared to the cent. Every case also checks that the bracket breakdown sums to taxBeforeCredits.",
+  "cases": [
+    {
+      "name": "2025 single, $100k income",
+      "inputs": { "grossIncome": 100000 },
+      "expected": { "taxObligation": 13449, "taxableIncome": 84250, "marginalRate": 22 }
+    },
+    {
+      "name": "taxable income of $11,925.50 lands in the 12% bracket",
+      "inputs": { "grossIncome": 27675.5 },
+      "expected": { "taxableIncome": 11925.5, "taxObligation": 1192.56 }
+    },
+    {
+      "name": "2026 married filing jointly, $150k, 2 children",
+      "inputs": { "year": 2026, "filingStatus": "marriedJointly", "grossIncome": 150000, "numChildren": 2 },
+      "expected": { "taxObligation": 10940, "dependentCredit": 4400 }
+    },
+    {
+      "name": "single, $215,750, 1 child (credit phase-out)",
+      "inputs": { "grossIncome": 215750, "numChildren": 1 },
+      "expected": { "dependentCredit": 1400 }
+    },
+    {
+      "name": "single, $85k, age 65+",
+      "inputs": { "grossIncome": 85000, "isAge65Plus": true },
+      "expected": { "taxObligation": 8521 }
+    },
+    {
+      "name": "2026 married filing jointly, $100k, both 65+",
+      "inputs": { "year": 2026, "filingStatus": "marriedJointly", "grossIncome": 100000, "isAge65Plus": true, "isSpouseAge65Plus": true },
+      "expected": { "taxObligation": 5804, "seniorDeduction": 12000 }
+    },
+    {
+      "name": "single, $92,500, $3,000 student loan interest (phased out)",
+      "inputs": { "grossIncome": 92500, "studentLoanInterest": 3000 },
+      "expected": { "taxObligation": 11524 }
+    },
+    {
+      "name": "married filing jointly, $150k, $10k spouse 401(k)",
+      "inputs": { "filingStatus": "marriedJointly", "grossIncome": 150000, "spouseRetirementContributions": 10000 },
+      "expected": { "taxObligation": 13698 }
+    },
+    {
+      "name": "$100k, $7,000 IRA marked non-deductible",
+      "inputs": { "grossIncome": 100000, "iraContributions": 7000, "isNonDeductibleIRA": true },
+      "expected": { "taxObligation": 13449 }
+    },
+    {
+      "name": "$100k, $7,000 deductible IRA",
+      "inputs": { "grossIncome": 100000, "iraContributions": 7000 },
+      "expected": { "taxObligation": 11909 }
+    },
+    {
+      "name": "top bracket, head of household 2026, $900k",
+      "inputs": { "year": 2026, "filingStatus": "headOfHousehold", "grossIncome": 900000 },
+      "expected": { "marginalRate": 37 }
+    }
+  ]
+}
