@@ -21,8 +21,13 @@ export interface TaxInputs {
     /** Other dependents (Credit for Other Dependents) */
     numOtherDependents: number;
     retirementContributions: number;
+    /** Spouse's 401(k)/403(b); joint returns only */
+    spouseRetirementContributions: number;
     iraContributions: number;
     spouseIraContributions: number;
+    /** User marked their Traditional IRA contribution as non-deductible (e.g. backdoor Roth) */
+    isNonDeductibleIRA: boolean;
+    isSpouseNonDeductibleIRA: boolean;
     hsaCoverageType: 'none' | 'selfOnly' | 'family';
     hsaContributions: number;
     healthInsurancePremiums: number;
@@ -47,6 +52,8 @@ export interface PotentialSavings {
 interface TaxCore {
     magi: number;
     agi: number;
+    /** Traditional IRA deduction actually taken (you + spouse) */
+    iraDeduction: number;
     iraDeductionInfo: IRADeductionInfo;
     spouseIraDeductionInfo: IRADeductionInfo | null;
     studentLoanDeduction: number;
@@ -63,6 +70,7 @@ interface TaxCore {
 export interface TaxCalculationResult extends Omit<TaxCore, 'bracket'> {
     grossIncome: number;
     retirementContributions: number;
+    spouseRetirementContributions: number;
     iraContributions: number;
     spouseIraContributions: number;
     hsaContributions: number;
@@ -105,11 +113,12 @@ function computeTax(inputs: TaxInputs): TaxCore {
     const { filingStatus, year } = inputs;
     const yearData = getTaxYearData(year);
     const isJoint = filingStatus === 'marriedJointly';
+    const spouseRetirement = isJoint ? inputs.spouseRetirementContributions : 0;
 
     // MAGI for IRA deductibility / Roth: before IRA and student loan deductions
     const magi = calculateMAGI(
         inputs.grossIncome,
-        inputs.retirementContributions,
+        inputs.retirementContributions + spouseRetirement,
         inputs.hsaContributions,
         inputs.healthInsurancePremiums,
         inputs.fsaContributions,
@@ -138,7 +147,10 @@ function computeTax(inputs: TaxInputs): TaxCore {
             isSpouseCatchUpEligible(inputs)
         );
     }
-    const iraDeduction = iraDeductionInfo.deductibleAmount + (spouseIraDeductionInfo?.deductibleAmount ?? 0);
+    // A contribution the user marked non-deductible is never deducted, whatever the limits allow
+    const yourIraDeduction = inputs.isNonDeductibleIRA ? 0 : iraDeductionInfo.deductibleAmount;
+    const spouseIraDeduction = inputs.isSpouseNonDeductibleIRA ? 0 : (spouseIraDeductionInfo?.deductibleAmount ?? 0);
+    const iraDeduction = yourIraDeduction + spouseIraDeduction;
 
     // Student loan interest: capped, phased out on MAGI after the IRA deduction,
     // and not allowed for married filing separately
@@ -188,6 +200,7 @@ function computeTax(inputs: TaxInputs): TaxCore {
     return {
         magi,
         agi,
+        iraDeduction,
         iraDeductionInfo,
         spouseIraDeductionInfo,
         studentLoanDeduction,
@@ -242,11 +255,12 @@ export function calculateTax(inputs: TaxInputs): TaxCalculationResult {
     const { bracket, ...core } = computeTax(inputs);
 
     const spouseIraContributions = isJoint ? inputs.spouseIraContributions : 0;
+    const spouseRetirementContributions = isJoint ? inputs.spouseRetirementContributions : 0;
 
     const totalDeductions =
         inputs.retirementContributions +
-        core.iraDeductionInfo.deductibleAmount +
-        (core.spouseIraDeductionInfo?.deductibleAmount ?? 0) +
+        spouseRetirementContributions +
+        core.iraDeduction +
         inputs.hsaContributions +
         inputs.healthInsurancePremiums +
         inputs.fsaContributions +
@@ -255,6 +269,7 @@ export function calculateTax(inputs: TaxInputs): TaxCalculationResult {
 
     const totalContributions =
         inputs.retirementContributions +
+        spouseRetirementContributions +
         inputs.iraContributions +
         spouseIraContributions +
         inputs.hsaContributions +
@@ -274,6 +289,7 @@ export function calculateTax(inputs: TaxInputs): TaxCalculationResult {
         ...core,
         grossIncome: inputs.grossIncome,
         retirementContributions: inputs.retirementContributions,
+        spouseRetirementContributions,
         iraContributions: inputs.iraContributions,
         spouseIraContributions,
         hsaContributions: inputs.hsaContributions,

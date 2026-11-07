@@ -1,8 +1,11 @@
 'use client'
 
-import { PieChart, TrendingUp, Info } from 'lucide-react'
+import { useState } from 'react'
+import { PieChart, TrendingUp, Info, ChevronDown, ChevronUp } from 'lucide-react'
 import { useTaxCalculator } from '@/hooks/useTaxCalculator'
-import { formatMoney, formatPercentage } from '@/lib/utils'
+import { formatMoney, formatPercentage, calculateTaxBracketBreakdown } from '@/lib/utils'
+
+const hasSavings = (s: { taxSavings: number } | null) => (s?.taxSavings ?? 0) > 0
 
 interface ResultsSectionProps {
   calculator: ReturnType<typeof useTaxCalculator>
@@ -10,12 +13,28 @@ interface ResultsSectionProps {
 
 export default function ResultsSection({ calculator }: ResultsSectionProps) {
   const { inputs, results, iraRecommendations, spouseIraRecommendations } = calculator
+  const [isBreakdownExpanded, setIsBreakdownExpanded] = useState(false)
+  
+  const bracketBreakdown = results && inputs.filingStatus 
+    ? calculateTaxBracketBreakdown(results.taxableIncome, inputs.filingStatus, inputs.year)
+    : []
 
   if (!results || !inputs.filingStatus) {
     return (
-      <div className="sticky top-8 space-y-6">
+      <div className="lg:sticky lg:top-8 space-y-6">
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-          <p className="text-slate-500 text-center">Enter your information to see tax calculations</p>
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 mx-auto bg-indigo-100 rounded-full flex items-center justify-center">
+              <PieChart className="w-8 h-8 text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-slate-700 font-semibold mb-1">Ready to Calculate</p>
+              <p className="text-slate-500 text-sm">Enter your filing status and income to see your tax estimate</p>
+            </div>
+            <div className="pt-4 border-t border-slate-200">
+              <p className="text-xs text-slate-400">Start by selecting your filing status and entering your gross income</p>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -24,22 +43,22 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
   const takeHome = results.grossIncome - results.taxObligation - results.totalContributions
 
   return (
-    <div className="sticky top-8 space-y-6">
+    <div className="lg:sticky lg:top-8 space-y-6" data-results-section>
       {/* Main Result Card */}
-      <div className="bg-indigo-900 text-white rounded-3xl p-8 shadow-xl shadow-indigo-900/20 relative overflow-hidden">
+      <div className="bg-indigo-900 text-white rounded-3xl p-8 shadow-xl shadow-indigo-900/20 relative overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-900/30">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500 rounded-full mix-blend-overlay filter blur-3xl opacity-20 -mr-16 -mt-16"></div>
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500 rounded-full mix-blend-overlay filter blur-3xl opacity-20 -ml-10 -mb-10"></div>
         
-        <div className="relative z-10">
+        <div className="relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <p className="text-indigo-200 font-medium mb-1">Estimated Take Home Pay</p>
-          <h2 className="text-5xl font-bold tracking-tighter mb-6 font-mono">{formatMoney(takeHome)}</h2>
+          <h2 className="text-5xl font-bold tracking-tighter mb-6 font-mono transition-all duration-300">{formatMoney(takeHome)}</h2>
 
           <div className="grid grid-cols-2 gap-4 bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
-            <div>
+            <div className="transition-all duration-300 hover:bg-white/5 rounded-lg p-2 -m-2">
               <p className="text-indigo-200 text-xs mb-1">Effective Tax Rate</p>
               <p className="text-xl font-bold text-white">{formatPercentage(results.effectiveRate)}</p>
             </div>
-            <div>
+            <div className="transition-all duration-300 hover:bg-white/5 rounded-lg p-2 -m-2">
               <p className="text-indigo-200 text-xs mb-1">Total Tax Owed</p>
               <p className="text-xl font-bold text-white">{formatMoney(results.taxObligation)}</p>
             </div>
@@ -87,7 +106,7 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
               <span className="text-indigo-600 font-bold">{results.bracketInfo.rateName}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-slate-600 text-sm">Tax Before Credits</span>
+              <span className="text-slate-600 text-sm">Federal Tax</span>
               <span className="text-slate-900 font-bold">{formatMoney(results.taxBeforeCredits)}</span>
             </div>
             {results.dependentCredit > 0 && (
@@ -96,7 +115,76 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                 <span className="text-green-600 font-bold">-{formatMoney(results.dependentCredit)}</span>
               </div>
             )}
+            <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
+              <span className="text-slate-700 font-semibold text-sm">Total Tax Owed</span>
+              <span className="text-slate-900 font-bold">{formatMoney(results.taxObligation)}</span>
+            </div>
           </div>
+
+          {/* Tax Bracket Breakdown - Expandable */}
+          {bracketBreakdown.length > 0 && (
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <button
+                onClick={() => setIsBreakdownExpanded(!isBreakdownExpanded)}
+                className="w-full flex items-center justify-between text-left hover:bg-slate-50 rounded-lg p-2 transition-colors"
+              >
+                <span className="text-sm font-semibold text-slate-700">Tax Bracket Breakdown</span>
+                {isBreakdownExpanded ? (
+                  <ChevronUp className="w-4 h-4 text-slate-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-500" />
+                )}
+              </button>
+              
+              {isBreakdownExpanded && (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        <th className="text-left py-2 px-2 text-slate-600 font-semibold">Tax Rate</th>
+                        <th className="text-left py-2 px-2 text-slate-600 font-semibold">Income Range</th>
+                        <th className="text-right py-2 px-2 text-slate-600 font-semibold">Income in Bracket</th>
+                        <th className="text-right py-2 px-2 text-slate-600 font-semibold">Tax at This Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bracketBreakdown.map((bracket, index) => (
+                        <tr
+                          key={index}
+                          className={`border-b border-slate-100 ${
+                            bracket.isActive ? 'bg-indigo-50' : index % 2 === 0 ? 'bg-white' : 'bg-slate-50'
+                          }`}
+                        >
+                          <td className="py-2 px-2">
+                            <span className={`font-semibold ${bracket.isActive ? 'text-indigo-700' : 'text-slate-700'}`}>
+                              {bracket.ratePercent}%
+                            </span>
+                          </td>
+                          <td className="py-2 px-2 text-slate-600">
+                            {formatMoney(bracket.min)} - {bracket.max === 999999999 ? '∞' : formatMoney(bracket.max)}
+                          </td>
+                          <td className="py-2 px-2 text-right font-medium text-slate-900">
+                            {formatMoney(bracket.incomeInBracket)}
+                          </td>
+                          <td className="py-2 px-2 text-right font-semibold text-slate-900">
+                            {formatMoney(bracket.taxInBracket)}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="border-t-2 border-slate-300 bg-slate-100">
+                        <td colSpan={3} className="py-2 px-2 font-semibold text-slate-700">
+                          Total Tax (before dependent credit)
+                        </td>
+                        <td className="py-2 px-2 text-right font-bold text-slate-900">
+                          {formatMoney(bracketBreakdown.reduce((sum, b) => sum + b.taxInBracket, 0))}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -111,16 +199,22 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
             <div>
               <p className="text-sm font-semibold text-slate-700 mb-1">Your Deductible Amount</p>
               <p className="text-lg font-bold text-indigo-600">
-                {formatMoney(results.iraDeductionInfo.deductibleAmount)}
+                {formatMoney(inputs.isNonDeductibleIRA ? 0 : results.iraDeductionInfo.deductibleAmount)}
               </p>
-              {results.iraDeductionInfo.isFullyDeductible && (
-                <p className="text-xs text-green-600 mt-1">✓ Fully deductible</p>
-              )}
-              {results.iraDeductionInfo.isPartiallyDeductible && (
-                <p className="text-xs text-yellow-600 mt-1">⚠ Partially deductible</p>
-              )}
-              {results.iraDeductionInfo.isNonDeductible && (
-                <p className="text-xs text-red-600 mt-1">✗ Not deductible</p>
+              {inputs.isNonDeductibleIRA ? (
+                <p className="text-xs text-blue-600 mt-1">ℹ Non-deductible contribution (marked by user)</p>
+              ) : (
+                <>
+                  {results.iraDeductionInfo.isFullyDeductible && (
+                    <p className="text-xs text-green-600 mt-1">✓ Fully deductible</p>
+                  )}
+                  {results.iraDeductionInfo.isPartiallyDeductible && (
+                    <p className="text-xs text-yellow-600 mt-1">⚠ Partially deductible</p>
+                  )}
+                  {results.iraDeductionInfo.isNonDeductible && (
+                    <p className="text-xs text-red-600 mt-1">✗ Not deductible</p>
+                  )}
+                </>
               )}
             </div>
 
@@ -141,7 +235,7 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                     </div>
                   )}
                 </div>
-                {iraRecommendations.estimatedTaxSavings > 0 && (
+                {iraRecommendations.estimatedTaxSavings > 0 && !inputs.isNonDeductibleIRA && (
                   <div className="mt-3 pt-3 border-t border-indigo-200">
                     <p className="text-xs text-slate-600">
                       <strong>Tax Savings:</strong> Contributing <strong className="text-indigo-700">{formatMoney(iraRecommendations.recommendedTrad)}</strong> to a Traditional IRA will reduce your tax liability by approximately <strong className="text-indigo-700">{formatMoney(iraRecommendations.estimatedTaxSavings)}</strong>.
@@ -150,18 +244,59 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                 )}
               </div>
             )}
+
+            {/* Backdoor Roth IRA recommendation when Traditional is not deductible and Roth is not eligible */}
+            {results.iraDeductionInfo.isNonDeductible && !iraRecommendations.rothEligible && iraRecommendations.globalLimit > 0 && (
+              <div className="bg-blue-50 rounded-xl p-4 mt-4 border border-blue-200">
+                <p className="text-xs font-semibold text-blue-700 mb-2">Consider Backdoor Roth IRA</p>
+                <p className="text-xs text-slate-600 mb-2">
+                  Since Traditional IRA contributions are not deductible and you're not eligible for direct Roth IRA contributions, consider a <strong>Backdoor Roth IRA</strong> strategy:
+                </p>
+                <div className="space-y-1 text-xs text-slate-600">
+                  <p>1. Contribute {formatMoney(iraRecommendations.globalLimit)} to a non-deductible Traditional IRA</p>
+                  <p>2. Immediately convert it to a Roth IRA (no tax on conversion since it's already after-tax)</p>
+                  <p>3. Future growth will be tax-free in the Roth IRA</p>
+                </div>
+                <p className="text-xs text-slate-500 mt-2 italic">
+                  Note: This strategy works best if you don't have existing Traditional IRA balances to avoid pro-rata rules.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Spouse IRA Recommendations */}
-      {inputs.filingStatus === 'marriedJointly' && spouseIraRecommendations && (
+      {inputs.filingStatus === 'marriedJointly' && spouseIraRecommendations && results.spouseIraDeductionInfo && (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-4 text-slate-400 uppercase text-xs font-bold tracking-wider">
             <Info className="w-4 h-4" /> Spouse IRA Recommendations
           </div>
           
           <div className="space-y-3">
+            {inputs.spouseIraContributions > 0 && (
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-slate-700 mb-1">Spouse Deductible Amount</p>
+                <p className="text-lg font-bold text-purple-600">
+                  {formatMoney(inputs.isSpouseNonDeductibleIRA ? 0 : results.spouseIraDeductionInfo.deductibleAmount)}
+                </p>
+                {inputs.isSpouseNonDeductibleIRA ? (
+                  <p className="text-xs text-blue-600 mt-1">ℹ Non-deductible contribution (marked by user)</p>
+                ) : (
+                  <>
+                    {results.spouseIraDeductionInfo.isFullyDeductible && (
+                      <p className="text-xs text-green-600 mt-1">✓ Fully deductible</p>
+                    )}
+                    {results.spouseIraDeductionInfo.isPartiallyDeductible && (
+                      <p className="text-xs text-yellow-600 mt-1">⚠ Partially deductible</p>
+                    )}
+                    {results.spouseIraDeductionInfo.isNonDeductible && (
+                      <p className="text-xs text-red-600 mt-1">✗ Not deductible</p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
             {spouseIraRecommendations.recommendedTrad > 0 && (
               <div className="bg-purple-50 rounded-xl p-4">
                 <p className="text-xs font-semibold text-purple-700 mb-2">Recommended Contribution Strategy</p>
@@ -179,7 +314,7 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                     </div>
                   )}
                 </div>
-                {spouseIraRecommendations.estimatedTaxSavings > 0 && (
+                {spouseIraRecommendations.estimatedTaxSavings > 0 && !inputs.isSpouseNonDeductibleIRA && (
                   <div className="mt-3 pt-3 border-t border-purple-200">
                     <p className="text-xs text-slate-600">
                       <strong>Tax Savings:</strong> Contributing <strong className="text-purple-700">{formatMoney(spouseIraRecommendations.recommendedTrad)}</strong> to a Traditional IRA will reduce your tax liability by approximately <strong className="text-purple-700">{formatMoney(spouseIraRecommendations.estimatedTaxSavings)}</strong>.
@@ -188,25 +323,59 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                 )}
               </div>
             )}
+
+            {/* Backdoor Roth IRA recommendation for spouse when Traditional is not deductible and Roth is not eligible */}
+            {results.spouseIraDeductionInfo && results.spouseIraDeductionInfo.isNonDeductible && !spouseIraRecommendations.rothEligible && spouseIraRecommendations.globalLimit > 0 && (
+              <div className="bg-blue-50 rounded-xl p-4 mt-4 border border-blue-200">
+                <p className="text-xs font-semibold text-blue-700 mb-2">Consider Backdoor Roth IRA (Spouse)</p>
+                <p className="text-xs text-slate-600 mb-2">
+                  Since Traditional IRA contributions are not deductible and spouse is not eligible for direct Roth IRA contributions, consider a <strong>Backdoor Roth IRA</strong> strategy:
+                </p>
+                <div className="space-y-1 text-xs text-slate-600">
+                  <p>1. Contribute {formatMoney(spouseIraRecommendations.globalLimit)} to a non-deductible Traditional IRA</p>
+                  <p>2. Immediately convert it to a Roth IRA (no tax on conversion since it's already after-tax)</p>
+                  <p>3. Future growth will be tax-free in the Roth IRA</p>
+                </div>
+                <p className="text-xs text-slate-500 mt-2 italic">
+                  Note: This strategy works best if you don't have existing Traditional IRA balances to avoid pro-rata rules.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Savings Tips */}
-      {((results.potentialSavings401k?.taxSavings ?? 0) > 0 || (results.potentialSavingsIRA?.taxSavings ?? 0) > 0) && (
+      {(hasSavings(results.potentialSavings401k) || hasSavings(results.potentialSavingsMax401k) || (hasSavings(results.potentialSavingsIRA) && !inputs.isNonDeductibleIRA)) && (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-4 text-slate-400 uppercase text-xs font-bold tracking-wider">
             <TrendingUp className="w-4 h-4" /> Tax Bracket & Savings Tips
           </div>
           
           <div className="space-y-3">
-            {results.potentialSavings401k && results.potentialSavings401k.taxSavings > 0 && (
+            {results.potentialSavings401k && hasSavings(results.potentialSavings401k) && (
               <div className="bg-green-50 rounded-xl p-4">
                 <p className="text-sm font-semibold text-green-700 mb-1">Increase 401(k) by {formatMoney(results.potentialSavings401k.additional401k)}</p>
                 <p className="text-xs text-slate-600">Save approximately {formatMoney(results.potentialSavings401k.taxSavings)} in taxes</p>
               </div>
             )}
-            {results.potentialSavingsIRA && results.potentialSavingsIRA.taxSavings > 0 && (
+            {results.potentialSavingsMax401k && hasSavings(results.potentialSavingsMax401k) && (
+              <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+                <p className="text-sm font-semibold text-emerald-700 mb-2">Maximize Your 401(k) Contributions</p>
+                <div className="space-y-1 text-xs text-slate-700">
+                  <p>
+                    <strong>Remaining space:</strong> {formatMoney(results.maxAdditional401k)} of {formatMoney(results.retirementLimit)} limit
+                  </p>
+                  <p>
+                    <strong>Current contribution:</strong> {formatMoney(results.retirementContributions)}
+                  </p>
+                  <p className="pt-2 border-t border-emerald-200">
+                    <strong className="text-emerald-700">Potential tax savings:</strong> Contributing the remaining {formatMoney(results.maxAdditional401k)} could save you approximately <strong className="text-emerald-700">{formatMoney(results.potentialSavingsMax401k.taxSavings)}</strong> in taxes this year.
+                  </p>
+                </div>
+              </div>
+            )}
+            {results.potentialSavingsIRA && hasSavings(results.potentialSavingsIRA) && !inputs.isNonDeductibleIRA && (
               <div className="bg-green-50 rounded-xl p-4">
                 <p className="text-sm font-semibold text-green-700 mb-1">Increase IRA by {formatMoney(results.potentialSavingsIRA.additionalIRA)}</p>
                 <p className="text-xs text-slate-600">Save approximately {formatMoney(results.potentialSavingsIRA.taxSavings)} in taxes</p>

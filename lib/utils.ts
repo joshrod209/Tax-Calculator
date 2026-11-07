@@ -15,11 +15,10 @@ export function getTaxYearData(year: TaxYear) {
 }
 
 /**
- * Get current/default tax year (most recent available)
+ * Get current/default tax year (defaults to 2025)
  */
 export function getCurrentTaxYear(): TaxYear {
-    const years = getAvailableYears();
-    return (years[0] || 2025) as TaxYear;
+    return 2025 as TaxYear;
 }
 
 /**
@@ -132,3 +131,50 @@ export function getBracketInfo(bracket: { rate: number }) {
     };
 }
 
+
+export interface TaxBracketBreakdown {
+    rate: number;
+    ratePercent: number;
+    min: number;
+    max: number;
+    incomeInBracket: number;
+    taxInBracket: number;
+    isActive: boolean;
+}
+
+/**
+ * Calculate tax bracket breakdown showing how much income is taxed at each rate.
+ * Each bracket starts where the previous one ends (bracket.min is the display
+ * value and is $1 higher, which would drop a dollar per bracket).
+ */
+export function calculateTaxBracketBreakdown(
+    taxableIncome: number,
+    filingStatus: FilingStatus,
+    year: TaxYear
+): TaxBracketBreakdown[] {
+    const brackets = getTaxYearData(year).brackets[filingStatus];
+    const breakdown: TaxBracketBreakdown[] = [];
+    let lower = 0;
+
+    for (const bracket of brackets) {
+        if (taxableIncome <= lower && breakdown.length > 0) break;
+
+        const isActive = taxableIncome <= bracket.max;
+        const incomeInBracket = Math.max(0, Math.min(taxableIncome, bracket.max) - lower);
+
+        breakdown.push({
+            rate: bracket.rate,
+            ratePercent: Math.round(bracket.rate * 100),
+            min: bracket.min,
+            max: bracket.max === Infinity ? 999999999 : bracket.max,
+            incomeInBracket,
+            taxInBracket: incomeInBracket * bracket.rate,
+            isActive
+        });
+
+        if (isActive) break;
+        lower = bracket.max;
+    }
+
+    return breakdown;
+}

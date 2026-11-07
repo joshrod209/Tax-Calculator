@@ -3,6 +3,7 @@
 import Header from './Header'
 import InputSection from './InputSection'
 import ResultsSection from './ResultsSection'
+import ScrollToTop from './ScrollToTop'
 import { useTaxCalculator } from '@/hooks/useTaxCalculator'
 
 export default function Calculator() {
@@ -19,6 +20,7 @@ export default function Calculator() {
           <ResultsSection calculator={calculator} />
         </div>
       </div>
+      <ScrollToTop />
     </>
   )
 }
