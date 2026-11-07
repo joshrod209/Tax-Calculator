@@ -23,21 +23,30 @@ export function getCurrentTaxYear(): TaxYear {
 }
 
 /**
- * Calculate standard deduction based on filing status, age, and year
+ * Calculate standard deduction based on filing status, age, and year.
+ * The additional 65+ amount applies per qualifying person: a spouse counts
+ * only on a joint return.
  */
-export function calculateStandardDeduction(filingStatus: FilingStatus, isAge65Plus: boolean, year: TaxYear): number {
+export function calculateStandardDeduction(
+    filingStatus: FilingStatus,
+    isAge65Plus: boolean,
+    year: TaxYear,
+    isSpouseAge65Plus = false
+): number {
     const yearData = getTaxYearData(year);
     let deduction = yearData.standardDeductions[filingStatus];
-    
-    if (isAge65Plus) {
-        deduction += yearData.age65PlusDeductions[filingStatus];
-    }
-    
+    const extra = yearData.age65PlusDeductions[filingStatus];
+
+    if (isAge65Plus) deduction += extra;
+    if (filingStatus === 'marriedJointly' && isSpouseAge65Plus) deduction += extra;
+
     return deduction;
 }
 
 /**
- * Calculate MAGI (Modified Adjusted Gross Income) for Traditional IRA eligibility
+ * Income after payroll pre-tax items and educator expenses, before the IRA and
+ * student loan interest deductions. This is the MAGI used for Traditional IRA
+ * deductibility and Roth eligibility.
  */
 export function calculateMAGI(
     grossIncome: number,
@@ -45,17 +54,13 @@ export function calculateMAGI(
     hsaContributions: number,
     healthInsurancePremiums: number,
     fsaContributions: number,
-    studentLoanInterest: number,
     educatorExpenses: number
 ): number {
-    let magi = grossIncome;
-    magi = Math.max(0, magi - retirementContributions);
-    magi = Math.max(0, magi - hsaContributions);
-    magi = Math.max(0, magi - healthInsurancePremiums);
-    magi = Math.max(0, magi - fsaContributions);
-    magi = Math.max(0, magi - studentLoanInterest);
-    magi = Math.max(0, magi - educatorExpenses);
-    return magi;
+    return Math.max(
+        0,
+        grossIncome - retirementContributions - hsaContributions -
+            healthInsurancePremiums - fsaContributions - educatorExpenses
+    );
 }
 
 /**
@@ -65,8 +70,10 @@ export function findTaxBracket(taxableIncome: number, filingStatus: FilingStatus
     const yearData = getTaxYearData(year);
     const brackets = yearData.brackets[filingStatus];
     
+    // Match on the upper bound only: bracket mins are whole dollars, so fractional
+    // incomes (e.g. 11,925.50) would otherwise fall between brackets.
     for (const bracket of brackets) {
-        if (taxableIncome >= bracket.min && taxableIncome <= bracket.max) {
+        if (taxableIncome <= bracket.max) {
             return bracket;
         }
     }

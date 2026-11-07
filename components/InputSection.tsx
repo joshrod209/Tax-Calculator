@@ -98,20 +98,62 @@ export default function InputSection({ calculator }: InputSectionProps) {
               />
               <span className="text-sm font-semibold text-slate-600">Age 65 or older</span>
             </label>
-            <p className="text-xs text-slate-500 mt-1 ml-1">Additional standard deduction</p>
+            <p className="text-xs text-slate-500 mt-1 ml-1">
+              Additional standard deduction, plus the {formatMoney(yearData.seniorDeduction.amount)} senior deduction (phases out above {formatMoney(inputs.filingStatus === 'marriedJointly' ? yearData.seniorDeduction.joint : yearData.seniorDeduction.other)} income)
+            </p>
           </div>
 
-          <div className="col-span-1 md:col-span-2">
-            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">Number of Dependents</label>
-            <input 
-              type="number" 
-              value={inputs.numDependents || ''}
-              onChange={(e) => updateInput('numDependents', parseInt(e.target.value) || 0)}
-              placeholder="0" 
+          {inputs.filingStatus === 'marriedJointly' && (
+            <>
+              <div className="col-span-1 md:col-span-2">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={inputs.isSpouseAge50Plus}
+                    onChange={(e) => updateInput('isSpouseAge50Plus', e.target.checked)}
+                    className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm font-semibold text-slate-600">Spouse age 50 or older</span>
+                </label>
+              </div>
+              <div className="col-span-1 md:col-span-2">
+                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={inputs.isSpouseAge65Plus}
+                    onChange={(e) => updateInput('isSpouseAge65Plus', e.target.checked)}
+                    className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm font-semibold text-slate-600">Spouse age 65 or older</span>
+                </label>
+              </div>
+            </>
+          )}
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">Children Under 17</label>
+            <input
+              type="number"
+              value={inputs.numChildren || ''}
+              onChange={(e) => updateInput('numChildren', Math.max(0, parseInt(e.target.value) || 0))}
+              placeholder="0"
               min="0"
               className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             />
-            <p className="text-xs text-slate-500 mt-1 ml-1">Each dependent reduces tax by $2,000 (2025)</p>
+            <p className="text-xs text-slate-500 mt-1 ml-1">{formatMoney(yearData.childTaxCredit)} Child Tax Credit each ({inputs.year})</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">Other Dependents</label>
+            <input
+              type="number"
+              value={inputs.numOtherDependents || ''}
+              onChange={(e) => updateInput('numOtherDependents', Math.max(0, parseInt(e.target.value) || 0))}
+              placeholder="0"
+              min="0"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            />
+            <p className="text-xs text-slate-500 mt-1 ml-1">{formatMoney(yearData.otherDependentCredit)} credit each (older children, relatives)</p>
           </div>
         </div>
       </section>
@@ -306,7 +348,11 @@ export default function InputSection({ calculator }: InputSectionProps) {
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               />
             </div>
-            <p className="text-xs text-slate-500 mt-1 ml-1">{inputs.year} IRS limit: {formatMoney(yearData.studentLoanInterestLimit)}</p>
+            <p className="text-xs text-slate-500 mt-1 ml-1">
+              {inputs.filingStatus === 'marriedSeparately'
+                ? 'Not deductible when married filing separately'
+                : `${inputs.year} limit: ${formatMoney(yearData.studentLoanInterestLimit)}; phases out from ${formatMoney((inputs.filingStatus === 'marriedJointly' ? yearData.studentLoanPhaseOut.joint : yearData.studentLoanPhaseOut.other).phaseOutStart)} income`}
+            </p>
           </div>
 
           <div>
