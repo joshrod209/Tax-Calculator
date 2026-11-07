@@ -1,5 +1,3 @@
-'use client'
-
 import { Calculator as CalculatorIcon } from 'lucide-react'
 
 interface HeaderProps {
@@ -14,9 +12,8 @@ export default function Header({ year }: HeaderProps) {
       </div>
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">{year} Tax Forecaster</h1>
-        <p className="text-slate-500 text-sm">Real-time estimates based on projected {year} IRS brackets</p>
+        <p className="text-slate-500 text-sm">Real-time federal estimates based on {year} IRS brackets</p>
       </div>
     </header>
   )
 }
-

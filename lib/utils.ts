@@ -22,41 +22,44 @@ export function getCurrentTaxYear(): TaxYear {
 }
 
 /**
- * Calculate standard deduction based on filing status, age, and year
+ * Calculate standard deduction based on filing status, age, and year.
+ * The additional 65+ amount applies per qualifying person: a spouse counts
+ * only on a joint return.
  */
-export function calculateStandardDeduction(filingStatus: FilingStatus, isAge65Plus: boolean, year: TaxYear): number {
+export function calculateStandardDeduction(
+    filingStatus: FilingStatus,
+    isAge65Plus: boolean,
+    year: TaxYear,
+    isSpouseAge65Plus = false
+): number {
     const yearData = getTaxYearData(year);
     let deduction = yearData.standardDeductions[filingStatus];
-    
-    if (isAge65Plus) {
-        deduction += yearData.age65PlusDeductions[filingStatus];
-    }
-    
+    const extra = yearData.age65PlusDeductions[filingStatus];
+
+    if (isAge65Plus) deduction += extra;
+    if (filingStatus === 'marriedJointly' && isSpouseAge65Plus) deduction += extra;
+
     return deduction;
 }
 
 /**
- * Calculate MAGI (Modified Adjusted Gross Income) for Traditional IRA eligibility
+ * Income after payroll pre-tax items and educator expenses, before the IRA and
+ * student loan interest deductions. This is the MAGI used for Traditional IRA
+ * deductibility and Roth eligibility.
  */
 export function calculateMAGI(
     grossIncome: number,
     retirementContributions: number,
-    spouseRetirementContributions: number,
     hsaContributions: number,
     healthInsurancePremiums: number,
     fsaContributions: number,
-    studentLoanInterest: number,
     educatorExpenses: number
 ): number {
-    let magi = grossIncome;
-    magi = Math.max(0, magi - retirementContributions);
-    magi = Math.max(0, magi - spouseRetirementContributions);
-    magi = Math.max(0, magi - hsaContributions);
-    magi = Math.max(0, magi - healthInsurancePremiums);
-    magi = Math.max(0, magi - fsaContributions);
-    magi = Math.max(0, magi - studentLoanInterest);
-    magi = Math.max(0, magi - educatorExpenses);
-    return magi;
+    return Math.max(
+        0,
+        grossIncome - retirementContributions - hsaContributions -
+            healthInsurancePremiums - fsaContributions - educatorExpenses
+    );
 }
 
 /**
@@ -66,8 +69,10 @@ export function findTaxBracket(taxableIncome: number, filingStatus: FilingStatus
     const yearData = getTaxYearData(year);
     const brackets = yearData.brackets[filingStatus];
     
+    // Match on the upper bound only: bracket mins are whole dollars, so fractional
+    // incomes (e.g. 11,925.50) would otherwise fall between brackets.
     for (const bracket of brackets) {
-        if (taxableIncome >= bracket.min && taxableIncome <= bracket.max) {
+        if (taxableIncome <= bracket.max) {
             return bracket;
         }
     }
@@ -126,6 +131,7 @@ export function getBracketInfo(bracket: { rate: number }) {
     };
 }
 
+
 export interface TaxBracketBreakdown {
     rate: number;
     ratePercent: number;
@@ -137,55 +143,38 @@ export interface TaxBracketBreakdown {
 }
 
 /**
- * Calculate tax bracket breakdown showing how much income is taxed at each rate
+ * Calculate tax bracket breakdown showing how much income is taxed at each rate.
+ * Each bracket starts where the previous one ends (bracket.min is the display
+ * value and is $1 higher, which would drop a dollar per bracket).
  */
 export function calculateTaxBracketBreakdown(
     taxableIncome: number,
     filingStatus: FilingStatus,
     year: TaxYear
 ): TaxBracketBreakdown[] {
-    const yearData = getTaxYearData(year);
-    const brackets = yearData.brackets[filingStatus];
+    const brackets = getTaxYearData(year).brackets[filingStatus];
     const breakdown: TaxBracketBreakdown[] = [];
-    
+    let lower = 0;
+
     for (const bracket of brackets) {
-        let incomeInBracket = 0;
-        let taxInBracket = 0;
-        let isActive = false;
-        
-        if (taxableIncome <= bracket.min) {
-            // User's income hasn't reached this bracket yet
-            incomeInBracket = 0;
-            taxInBracket = 0;
-            isActive = false;
-        } else if (taxableIncome >= bracket.max) {
-            // User's income fills this entire bracket
-            incomeInBracket = bracket.max - bracket.min;
-            taxInBracket = incomeInBracket * bracket.rate;
-            isActive = false;
-        } else {
-            // User's income is within this bracket (current bracket)
-            incomeInBracket = taxableIncome - bracket.min;
-            taxInBracket = incomeInBracket * bracket.rate;
-            isActive = true;
-        }
-        
+        if (taxableIncome <= lower && breakdown.length > 0) break;
+
+        const isActive = taxableIncome <= bracket.max;
+        const incomeInBracket = Math.max(0, Math.min(taxableIncome, bracket.max) - lower);
+
         breakdown.push({
             rate: bracket.rate,
             ratePercent: Math.round(bracket.rate * 100),
             min: bracket.min,
             max: bracket.max === Infinity ? 999999999 : bracket.max,
             incomeInBracket,
-            taxInBracket,
+            taxInBracket: incomeInBracket * bracket.rate,
             isActive
         });
-        
-        // Stop after the active bracket
-        if (isActive) {
-            break;
-        }
+
+        if (isActive) break;
+        lower = bracket.max;
     }
-    
+
     return breakdown;
 }
-

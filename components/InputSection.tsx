@@ -31,24 +31,23 @@ export default function InputSection({ calculator }: InputSectionProps) {
 
   // Calculate current MAGI for eligibility checks
   const currentMAGI = useMemo(() => {
+    const spouseRetirement = inputs.filingStatus === 'marriedJointly' ? inputs.spouseRetirementContributions : 0
     return calculateMAGI(
       inputs.grossIncome,
-      inputs.retirementContributions,
-      inputs.spouseRetirementContributions,
+      inputs.retirementContributions + spouseRetirement,
       inputs.hsaContributions,
       inputs.healthInsurancePremiums,
       inputs.fsaContributions,
-      inputs.studentLoanInterest,
       inputs.educatorExpenses
     )
   }, [
     inputs.grossIncome,
+    inputs.filingStatus,
     inputs.retirementContributions,
     inputs.spouseRetirementContributions,
     inputs.hsaContributions,
     inputs.healthInsurancePremiums,
     inputs.fsaContributions,
-    inputs.studentLoanInterest,
     inputs.educatorExpenses
   ])
 
@@ -270,7 +269,12 @@ export default function InputSection({ calculator }: InputSectionProps) {
               />
               <span className="text-sm font-semibold text-slate-600">Age 65 or older</span>
             </label>
-            <p className="text-xs text-slate-500 mt-1 ml-1">Additional standard deduction</p>
+            <p className="text-xs text-slate-500 mt-1 ml-1">
+              Additional standard deduction
+              {inputs.filingStatus !== 'marriedSeparately' && (
+                <>, plus the {formatMoney(yearData.seniorDeduction.amount)} senior deduction (phases out above {formatMoney(inputs.filingStatus === 'marriedJointly' ? yearData.seniorDeduction.joint : yearData.seniorDeduction.other)} income)</>
+              )}
+            </p>
           </div>
 
           {/* Spouse Age Checkboxes - Show for any filing status that includes a spouse */}
@@ -307,17 +311,30 @@ export default function InputSection({ calculator }: InputSectionProps) {
             </>
           )}
 
-          <div className="col-span-1 md:col-span-2">
-            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">Number of Dependents</label>
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">Children Under 17</label>
             <input 
               type="number" 
-              value={inputs.numDependents || ''}
-              onChange={(e) => updateInput('numDependents', parseInt(e.target.value) || 0)}
+              value={inputs.numChildren || ''}
+              onChange={(e) => updateInput('numChildren', Math.max(0, parseInt(e.target.value) || 0))}
               placeholder="0" 
               min="0"
               className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             />
-            <p className="text-xs text-slate-500 mt-1 ml-1">Each dependent reduces tax by $2,000 (2025)</p>
+            <p className="text-xs text-slate-500 mt-1 ml-1">{formatMoney(yearData.childTaxCredit)} Child Tax Credit each ({inputs.year})</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">Other Dependents</label>
+            <input 
+              type="number" 
+              value={inputs.numOtherDependents || ''}
+              onChange={(e) => updateInput('numOtherDependents', Math.max(0, parseInt(e.target.value) || 0))}
+              placeholder="0" 
+              min="0"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            />
+            <p className="text-xs text-slate-500 mt-1 ml-1">{formatMoney(yearData.otherDependentCredit)} credit each (older children, relatives)</p>
           </div>
         </div>
       </section>
@@ -682,7 +699,11 @@ export default function InputSection({ calculator }: InputSectionProps) {
                     className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                   />
                 </div>
-                <p className="text-xs text-slate-500 mt-1">{inputs.year} limit: {formatMoney(yearData.studentLoanInterestLimit)}</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {inputs.filingStatus === 'marriedSeparately'
+                    ? 'Not deductible when married filing separately'
+                    : `${inputs.year} limit: ${formatMoney(yearData.studentLoanInterestLimit)}; phases out from ${formatMoney((inputs.filingStatus === 'marriedJointly' ? yearData.studentLoanPhaseOut.joint : yearData.studentLoanPhaseOut.other).phaseOutStart)} income`}
+                </p>
               </div>
 
               <div>

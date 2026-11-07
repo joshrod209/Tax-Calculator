@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { PieChart, TrendingUp, Info, ChevronDown, ChevronUp } from 'lucide-react'
 import { useTaxCalculator } from '@/hooks/useTaxCalculator'
 import { formatMoney, formatPercentage, calculateTaxBracketBreakdown } from '@/lib/utils'
-import { calculateIRAContributionRecommendations } from '@/lib/ira-calculations'
+
+const hasSavings = (s: { taxSavings: number } | null) => (s?.taxSavings ?? 0) > 0
 
 interface ResultsSectionProps {
   calculator: ReturnType<typeof useTaxCalculator>
@@ -39,7 +40,7 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
     )
   }
 
-  const takeHome = results.grossIncome - results.taxObligation - results.totalDeductions
+  const takeHome = results.grossIncome - results.taxObligation - results.totalContributions
 
   return (
     <div className="lg:sticky lg:top-8 space-y-6" data-results-section>
@@ -78,14 +79,21 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
           </div>
 
           <div className="flex justify-between items-center py-2 border-b border-slate-100">
+            <span className="text-slate-600 font-medium">Pre-Tax Deductions</span>
+            <span className="text-slate-900 font-bold">-{formatMoney(results.totalDeductions)}</span>
+          </div>
+
+          <div className="flex justify-between items-center py-2 border-b border-slate-100">
             <span className="text-slate-600 font-medium">Standard Deduction</span>
             <span className="text-slate-900 font-bold">-{formatMoney(results.standardDeduction)}</span>
           </div>
 
-          <div className="flex justify-between items-center py-2 border-b border-slate-100">
-            <span className="text-slate-600 font-medium">Pre-Tax Deductions</span>
-            <span className="text-slate-900 font-bold">-{formatMoney(results.totalDeductions)}</span>
-          </div>
+          {results.seniorDeduction > 0 && (
+            <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <span className="text-slate-600 font-medium">Senior Deduction (65+)</span>
+              <span className="text-slate-900 font-bold">-{formatMoney(results.seniorDeduction)}</span>
+            </div>
+          )}
 
           <div className="flex justify-between items-center py-2 border-b border-slate-200">
             <span className="text-slate-700 font-semibold">Taxable Income</span>
@@ -99,11 +107,11 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-600 text-sm">Federal Tax</span>
-              <span className="text-slate-900 font-bold">{formatMoney(results.taxObligation + results.dependentCredit)}</span>
+              <span className="text-slate-900 font-bold">{formatMoney(results.taxBeforeCredits)}</span>
             </div>
             {results.dependentCredit > 0 && (
               <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
-                <span className="text-slate-600 text-sm">Dependent Credit ({inputs.numDependents})</span>
+                <span className="text-slate-600 text-sm">Child & Dependent Credits</span>
                 <span className="text-green-600 font-bold">-{formatMoney(results.dependentCredit)}</span>
               </div>
             )}
@@ -227,10 +235,10 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                     </div>
                   )}
                 </div>
-                {results.marginalRate > 0 && !inputs.isNonDeductibleIRA && (
+                {iraRecommendations.estimatedTaxSavings > 0 && !inputs.isNonDeductibleIRA && (
                   <div className="mt-3 pt-3 border-t border-indigo-200">
                     <p className="text-xs text-slate-600">
-                      <strong>Tax Savings:</strong> Contributing <strong className="text-indigo-700">{formatMoney(iraRecommendations.recommendedTrad)}</strong> to Traditional IRA at your current tax rate of <strong className="text-indigo-700">{formatPercentage(results.marginalRate)}</strong> will reduce your tax liability by approximately <strong className="text-indigo-700">{formatMoney(iraRecommendations.recommendedTrad * (results.marginalRate / 100))}</strong>.
+                      <strong>Tax Savings:</strong> Contributing <strong className="text-indigo-700">{formatMoney(iraRecommendations.recommendedTrad)}</strong> to a Traditional IRA will reduce your tax liability by approximately <strong className="text-indigo-700">{formatMoney(iraRecommendations.estimatedTaxSavings)}</strong>.
                     </p>
                   </div>
                 )}
@@ -306,10 +314,10 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                     </div>
                   )}
                 </div>
-                {results.marginalRate > 0 && !inputs.isSpouseNonDeductibleIRA && (
+                {spouseIraRecommendations.estimatedTaxSavings > 0 && !inputs.isSpouseNonDeductibleIRA && (
                   <div className="mt-3 pt-3 border-t border-purple-200">
                     <p className="text-xs text-slate-600">
-                      <strong>Tax Savings:</strong> Contributing <strong className="text-purple-700">{formatMoney(spouseIraRecommendations.recommendedTrad)}</strong> to Traditional IRA at your current tax rate of <strong className="text-purple-700">{formatPercentage(results.marginalRate)}</strong> will reduce your tax liability by approximately <strong className="text-purple-700">{formatMoney(spouseIraRecommendations.recommendedTrad * (results.marginalRate / 100))}</strong>.
+                      <strong>Tax Savings:</strong> Contributing <strong className="text-purple-700">{formatMoney(spouseIraRecommendations.recommendedTrad)}</strong> to a Traditional IRA will reduce your tax liability by approximately <strong className="text-purple-700">{formatMoney(spouseIraRecommendations.estimatedTaxSavings)}</strong>.
                     </p>
                   </div>
                 )}
@@ -338,20 +346,20 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
       )}
 
       {/* Savings Tips */}
-      {(results.potentialSavings401k || results.potentialSavingsMax401k || (results.potentialSavingsIRA && results.iraDeductionInfo.deductibleAmount > 0)) && (
+      {(hasSavings(results.potentialSavings401k) || hasSavings(results.potentialSavingsMax401k) || (hasSavings(results.potentialSavingsIRA) && !inputs.isNonDeductibleIRA)) && (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-4 text-slate-400 uppercase text-xs font-bold tracking-wider">
             <TrendingUp className="w-4 h-4" /> Tax Bracket & Savings Tips
           </div>
           
           <div className="space-y-3">
-            {results.potentialSavings401k && (
+            {results.potentialSavings401k && hasSavings(results.potentialSavings401k) && (
               <div className="bg-green-50 rounded-xl p-4">
-                <p className="text-sm font-semibold text-green-700 mb-1">Increase 401(k) by $1,000</p>
+                <p className="text-sm font-semibold text-green-700 mb-1">Increase 401(k) by {formatMoney(results.potentialSavings401k.additional401k)}</p>
                 <p className="text-xs text-slate-600">Save approximately {formatMoney(results.potentialSavings401k.taxSavings)} in taxes</p>
               </div>
             )}
-            {results.potentialSavingsMax401k && results.maxAdditional401k > 0 && (
+            {results.potentialSavingsMax401k && hasSavings(results.potentialSavingsMax401k) && (
               <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
                 <p className="text-sm font-semibold text-emerald-700 mb-2">Maximize Your 401(k) Contributions</p>
                 <div className="space-y-1 text-xs text-slate-700">
@@ -367,9 +375,9 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                 </div>
               </div>
             )}
-            {results.potentialSavingsIRA && results.iraDeductionInfo.deductibleAmount > 0 && (
+            {results.potentialSavingsIRA && hasSavings(results.potentialSavingsIRA) && !inputs.isNonDeductibleIRA && (
               <div className="bg-green-50 rounded-xl p-4">
-                <p className="text-sm font-semibold text-green-700 mb-1">Increase IRA by $1,000</p>
+                <p className="text-sm font-semibold text-green-700 mb-1">Increase IRA by {formatMoney(results.potentialSavingsIRA.additionalIRA)}</p>
                 <p className="text-xs text-slate-600">Save approximately {formatMoney(results.potentialSavingsIRA.taxSavings)} in taxes</p>
               </div>
             )}

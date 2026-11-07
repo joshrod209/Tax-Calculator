@@ -1,41 +1,30 @@
 'use client'
 
 import { useState, useMemo } from 'react';
-import { type TaxYear, type FilingStatus } from '@/lib/data';
+import { type FilingStatus } from '@/lib/data';
 import { getCurrentTaxYear, getAvailableYears } from '@/lib/utils';
-import { calculateTax, type TaxCalculationResult } from '@/lib/tax-calculations';
+import {
+    calculateTax,
+    estimateTaxSavings,
+    type TaxCalculationResult,
+    type TaxInputs
+} from '@/lib/tax-calculations';
 import { calculateIRAContributionRecommendations } from '@/lib/ira-calculations';
 
-export interface TaxCalculatorInputs {
-    year: TaxYear;
+export interface TaxCalculatorInputs extends Omit<TaxInputs, 'filingStatus'> {
     filingStatus: FilingStatus | '';
-    grossIncome: number;
-    isAge50Plus: boolean;
-    isAge65Plus: boolean;
-    numDependents: number;
-    retirementContributions: number;
-    iraContributions: number;
-    hsaCoverageType: 'none' | 'selfOnly' | 'family';
-    hsaContributions: number;
-    healthInsurancePremiums: number;
-    fsaContributions: number;
-    studentLoanInterest: number;
-    educatorExpenses: number;
-    isCoveredByEmployerPlan: boolean;
-    isSpouseCoveredByEmployerPlan: boolean;
-    spouseIraContributions: number;
-    spouseRetirementContributions: number;
-    isSpouseAge50Plus: boolean;
-    isSpouseAge65Plus: boolean;
-    isNonDeductibleIRA: boolean;
-    isSpouseNonDeductibleIRA: boolean;
 }
+
+type IRARecommendation = ReturnType<typeof calculateIRAContributionRecommendations> & {
+    /** Tax saved by putting recommendedTrad in a Traditional IRA instead of nothing */
+    estimatedTaxSavings: number;
+};
 
 export interface TaxCalculatorState {
     inputs: TaxCalculatorInputs;
     results: TaxCalculationResult | null;
-    iraRecommendations: ReturnType<typeof calculateIRAContributionRecommendations> | null;
-    spouseIraRecommendations: ReturnType<typeof calculateIRAContributionRecommendations> | null;
+    iraRecommendations: IRARecommendation | null;
+    spouseIraRecommendations: IRARecommendation | null;
 }
 
 const defaultInputs: TaxCalculatorInputs = {
@@ -44,9 +33,16 @@ const defaultInputs: TaxCalculatorInputs = {
     grossIncome: 0,
     isAge50Plus: false,
     isAge65Plus: false,
-    numDependents: 0,
+    isSpouseAge50Plus: false,
+    isSpouseAge65Plus: false,
+    numChildren: 0,
+    numOtherDependents: 0,
     retirementContributions: 0,
+    spouseRetirementContributions: 0,
     iraContributions: 0,
+    spouseIraContributions: 0,
+    isNonDeductibleIRA: false,
+    isSpouseNonDeductibleIRA: false,
     hsaCoverageType: 'none',
     hsaContributions: 0,
     healthInsurancePremiums: 0,
@@ -55,84 +51,57 @@ const defaultInputs: TaxCalculatorInputs = {
     educatorExpenses: 0,
     isCoveredByEmployerPlan: false,
     isSpouseCoveredByEmployerPlan: false,
-    spouseIraContributions: 0,
-    spouseRetirementContributions: 0,
-    isSpouseAge50Plus: false,
-    isSpouseAge65Plus: false,
-    isNonDeductibleIRA: false,
-    isSpouseNonDeductibleIRA: false,
 };
 
 export function useTaxCalculator() {
     const [inputs, setInputs] = useState<TaxCalculatorInputs>(defaultInputs);
 
-    const results = useMemo<TaxCalculationResult | null>(() => {
-        if (!inputs.filingStatus || inputs.grossIncome === 0) {
-            return null;
-        }
+    const taxInputs = useMemo<TaxInputs | null>(() => {
+        if (!inputs.filingStatus || inputs.grossIncome === 0) return null;
+        return { ...inputs, filingStatus: inputs.filingStatus };
+    }, [inputs]);
 
+    const results = useMemo<TaxCalculationResult | null>(() => {
+        if (!taxInputs) return null;
         try {
-            return calculateTax(
-                inputs.grossIncome,
-                inputs.filingStatus,
-                inputs.isAge65Plus,
-                inputs.numDependents,
-                inputs.retirementContributions,
-                inputs.iraContributions,
-                inputs.hsaCoverageType,
-                inputs.hsaContributions,
-                inputs.healthInsurancePremiums,
-                inputs.fsaContributions,
-                inputs.studentLoanInterest,
-                inputs.educatorExpenses,
-                inputs.year,
-                inputs.isAge50Plus,
-                inputs.isCoveredByEmployerPlan,
-                inputs.isSpouseCoveredByEmployerPlan,
-                inputs.spouseIraContributions,
-                inputs.spouseRetirementContributions,
-                inputs.isSpouseAge50Plus,
-                inputs.isSpouseAge65Plus,
-                inputs.isNonDeductibleIRA,
-                inputs.isSpouseNonDeductibleIRA
-            );
+            return calculateTax(taxInputs);
         } catch (error) {
             console.error('Tax calculation error:', error);
             return null;
         }
-    }, [inputs]);
+    }, [taxInputs]);
 
-    const iraRecommendations = useMemo(() => {
-        if (!results || !inputs.filingStatus) return null;
+    const iraRecommendations = useMemo<IRARecommendation | null>(() => {
+        if (!results || !taxInputs) return null;
 
-        const isEligibleForCatchUp = inputs.isAge50Plus || inputs.isAge65Plus;
-        
-        return calculateIRAContributionRecommendations(
+        const rec = calculateIRAContributionRecommendations(
             results.magi,
-            inputs.filingStatus,
-            inputs.isCoveredByEmployerPlan,
-            inputs.isSpouseCoveredByEmployerPlan,
-            inputs.year,
-            isEligibleForCatchUp,
-            inputs.iraContributions
+            taxInputs.filingStatus,
+            taxInputs.isCoveredByEmployerPlan,
+            taxInputs.isSpouseCoveredByEmployerPlan,
+            taxInputs.year,
+            taxInputs.isAge50Plus || taxInputs.isAge65Plus,
+            taxInputs.iraContributions
         );
-    }, [results, inputs]);
+        const savings = estimateTaxSavings({ ...taxInputs, iraContributions: 0 }, 0, rec.recommendedTrad);
+        return { ...rec, estimatedTaxSavings: savings.taxSavings };
+    }, [results, taxInputs]);
 
-    const spouseIraRecommendations = useMemo(() => {
-        if (!results || inputs.filingStatus !== 'marriedJointly') return null;
+    const spouseIraRecommendations = useMemo<IRARecommendation | null>(() => {
+        if (!results || !taxInputs || taxInputs.filingStatus !== 'marriedJointly') return null;
 
-        const isSpouseEligibleForCatchUp = inputs.isSpouseAge50Plus || inputs.isSpouseAge65Plus;
-        
-        return calculateIRAContributionRecommendations(
+        const rec = calculateIRAContributionRecommendations(
             results.magi,
-            inputs.filingStatus,
-            inputs.isSpouseCoveredByEmployerPlan,
-            inputs.isCoveredByEmployerPlan,
-            inputs.year,
-            isSpouseEligibleForCatchUp,
-            inputs.spouseIraContributions
+            taxInputs.filingStatus,
+            taxInputs.isSpouseCoveredByEmployerPlan,
+            taxInputs.isCoveredByEmployerPlan,
+            taxInputs.year,
+            taxInputs.isSpouseAge50Plus || taxInputs.isSpouseAge65Plus,
+            taxInputs.spouseIraContributions
         );
-    }, [results, inputs]);
+        const savings = estimateTaxSavings({ ...taxInputs, spouseIraContributions: 0 }, 0, 0, rec.recommendedTrad);
+        return { ...rec, estimatedTaxSavings: savings.taxSavings };
+    }, [results, taxInputs]);
 
     const updateInput = <K extends keyof TaxCalculatorInputs>(
         key: K,
@@ -155,4 +124,3 @@ export function useTaxCalculator() {
         availableYears: getAvailableYears(),
     };
 }
-

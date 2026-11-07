@@ -1,12 +1,42 @@
 import { type TaxYear, type FilingStatus } from './data';
-import { 
-    getTaxYearData, 
-    calculateStandardDeduction, 
-    calculateMAGI, 
-    findTaxBracket, 
-    getBracketInfo 
+import {
+    getTaxYearData,
+    calculateStandardDeduction,
+    calculateMAGI,
+    findTaxBracket,
+    getBracketInfo
 } from './utils';
 import { calculateTraditionalIRADeductible, type IRADeductionInfo } from './ira-calculations';
+
+export interface TaxInputs {
+    year: TaxYear;
+    filingStatus: FilingStatus;
+    grossIncome: number;
+    isAge50Plus: boolean;
+    isAge65Plus: boolean;
+    isSpouseAge50Plus: boolean;
+    isSpouseAge65Plus: boolean;
+    /** Qualifying children under 17 (Child Tax Credit) */
+    numChildren: number;
+    /** Other dependents (Credit for Other Dependents) */
+    numOtherDependents: number;
+    retirementContributions: number;
+    /** Spouse's 401(k)/403(b); joint returns only */
+    spouseRetirementContributions: number;
+    iraContributions: number;
+    spouseIraContributions: number;
+    /** User marked their Traditional IRA contribution as non-deductible (e.g. backdoor Roth) */
+    isNonDeductibleIRA: boolean;
+    isSpouseNonDeductibleIRA: boolean;
+    hsaCoverageType: 'none' | 'selfOnly' | 'family';
+    hsaContributions: number;
+    healthInsurancePremiums: number;
+    fsaContributions: number;
+    studentLoanInterest: number;
+    educatorExpenses: number;
+    isCoveredByEmployerPlan: boolean;
+    isSpouseCoveredByEmployerPlan: boolean;
+}
 
 export interface PotentialSavings {
     additional401k: number;
@@ -19,23 +49,41 @@ export interface PotentialSavings {
     newTaxableIncome: number;
 }
 
-export interface TaxCalculationResult {
+interface TaxCore {
+    magi: number;
+    agi: number;
+    /** Traditional IRA deduction actually taken (you + spouse) */
+    iraDeduction: number;
+    iraDeductionInfo: IRADeductionInfo;
+    spouseIraDeductionInfo: IRADeductionInfo | null;
+    studentLoanDeduction: number;
+    standardDeduction: number;
+    seniorDeduction: number;
+    taxableIncome: number;
+    taxBeforeCredits: number;
+    dependentCredit: number;
+    taxObligation: number;
+    marginalRate: number;
+    bracket: ReturnType<typeof findTaxBracket>;
+}
+
+export interface TaxCalculationResult extends Omit<TaxCore, 'bracket'> {
     grossIncome: number;
     retirementContributions: number;
+    spouseRetirementContributions: number;
     iraContributions: number;
+    spouseIraContributions: number;
     hsaContributions: number;
     healthInsurancePremiums: number;
     fsaContributions: number;
     studentLoanInterest: number;
     educatorExpenses: number;
+    /** Above-the-line deductions actually allowed (deductible IRA amounts, phased student loan interest) */
     totalDeductions: number;
-    standardDeduction: number;
-    taxableIncome: number;
-    taxObligation: number;
+    /** Cash set aside from pay: retirement, IRA, HSA, premiums, FSA */
+    totalContributions: number;
     effectiveRate: number;
-    marginalRate: number;
     bracketInfo: ReturnType<typeof getBracketInfo>;
-    dependentCredit: number;
     year: TaxYear;
     potentialSavings401k: PotentialSavings | null;
     potentialSavingsIRA: PotentialSavings | null;
@@ -46,215 +94,230 @@ export interface TaxCalculationResult {
     maxAdditionalSpouseIRA: number;
     retirementLimit: number;
     iraLimit: number;
-    magi: number;
-    iraDeductionInfo: IRADeductionInfo;
-    spouseIraContributions: number;
-    spouseIraDeductionInfo: IRADeductionInfo | null;
+}
+
+const isCatchUpEligible = (inputs: TaxInputs) => inputs.isAge50Plus || inputs.isAge65Plus;
+const isSpouseCatchUpEligible = (inputs: TaxInputs) => inputs.isSpouseAge50Plus || inputs.isSpouseAge65Plus;
+
+/** Linear phase-out: 1 below start, 0 at or above end */
+function phaseOutFraction(income: number, start: number, end: number): number {
+    if (income <= start) return 1;
+    if (income >= end) return 0;
+    return (end - income) / (end - start);
 }
 
 /**
- * Calculate potential tax savings from increasing pre-tax contributions
+ * Compute the full federal income tax picture for a set of inputs.
  */
-export function calculatePotentialSavings(
-    currentTaxableIncome: number,
-    filingStatus: FilingStatus,
-    year: TaxYear,
-    additional401k: number,
-    additionalIRA: number
-): PotentialSavings {
+function computeTax(inputs: TaxInputs): TaxCore {
+    const { filingStatus, year } = inputs;
     const yearData = getTaxYearData(year);
-    const currentBracket = findTaxBracket(currentTaxableIncome, filingStatus, year);
-    const marginalRate = currentBracket.rate;
-    
-    const totalAdditional = (additional401k || 0) + (additionalIRA || 0);
-    
-    if (totalAdditional <= 0) {
-        return {
-            additional401k: 0,
-            additionalIRA: 0,
-            totalAdditional: 0,
-            taxSavings: 0,
-            marginalRate: marginalRate * 100,
-            newMarginalRate: marginalRate * 100,
-            currentTaxableIncome: currentTaxableIncome,
-            newTaxableIncome: currentTaxableIncome
-        };
+    const isJoint = filingStatus === 'marriedJointly';
+    const spouseRetirement = isJoint ? inputs.spouseRetirementContributions : 0;
+
+    // MAGI for IRA deductibility / Roth: before IRA and student loan deductions
+    const magi = calculateMAGI(
+        inputs.grossIncome,
+        inputs.retirementContributions + spouseRetirement,
+        inputs.hsaContributions,
+        inputs.healthInsurancePremiums,
+        inputs.fsaContributions,
+        inputs.educatorExpenses
+    );
+
+    const iraDeductionInfo = calculateTraditionalIRADeductible(
+        magi,
+        filingStatus,
+        inputs.isCoveredByEmployerPlan,
+        inputs.isSpouseCoveredByEmployerPlan,
+        inputs.iraContributions,
+        year,
+        isCatchUpEligible(inputs)
+    );
+
+    let spouseIraDeductionInfo: IRADeductionInfo | null = null;
+    if (isJoint && inputs.spouseIraContributions > 0) {
+        spouseIraDeductionInfo = calculateTraditionalIRADeductible(
+            magi,
+            filingStatus,
+            inputs.isSpouseCoveredByEmployerPlan,
+            inputs.isCoveredByEmployerPlan,
+            inputs.spouseIraContributions,
+            year,
+            isSpouseCatchUpEligible(inputs)
+        );
     }
-    
-    const newTaxableIncome = Math.max(0, currentTaxableIncome - totalAdditional);
-    const newBracket = findTaxBracket(newTaxableIncome, filingStatus, year);
-    
-    const currentTax = currentBracket.formula(currentTaxableIncome);
-    const newTax = newBracket.formula(newTaxableIncome);
-    const taxSavings = currentTax - newTax;
-    
+    // A contribution the user marked non-deductible is never deducted, whatever the limits allow
+    const yourIraDeduction = inputs.isNonDeductibleIRA ? 0 : iraDeductionInfo.deductibleAmount;
+    const spouseIraDeduction = inputs.isSpouseNonDeductibleIRA ? 0 : (spouseIraDeductionInfo?.deductibleAmount ?? 0);
+    const iraDeduction = yourIraDeduction + spouseIraDeduction;
+
+    // Student loan interest: capped, phased out on MAGI after the IRA deduction,
+    // and not allowed for married filing separately
+    let studentLoanDeduction = 0;
+    if (filingStatus !== 'marriedSeparately' && inputs.studentLoanInterest > 0) {
+        const range = isJoint ? yearData.studentLoanPhaseOut.joint : yearData.studentLoanPhaseOut.other;
+        const capped = Math.min(inputs.studentLoanInterest, yearData.studentLoanInterestLimit);
+        const fraction = phaseOutFraction(magi - iraDeduction, range.phaseOutStart, range.phaseOutEnd);
+        studentLoanDeduction = Math.round(capped * fraction * 100) / 100;
+    }
+
+    const agi = Math.max(0, magi - iraDeduction - studentLoanDeduction);
+
+    const standardDeduction = calculateStandardDeduction(
+        filingStatus,
+        inputs.isAge65Plus,
+        year,
+        inputs.isSpouseAge65Plus
+    );
+
+    // Senior deduction: $6,000 per qualifying person, each reduced by 6% of MAGI
+    // over the threshold. Married couples must file jointly to claim it.
+    let seniorDeduction = 0;
+    if (filingStatus !== 'marriedSeparately') {
+        const qualifying = (inputs.isAge65Plus ? 1 : 0) + (isJoint && inputs.isSpouseAge65Plus ? 1 : 0);
+        const senior = yearData.seniorDeduction;
+        const threshold = isJoint ? senior.joint : senior.other;
+        const perPerson = Math.max(0, senior.amount - senior.phaseOutRate * Math.max(0, agi - threshold));
+        seniorDeduction = qualifying * perPerson;
+    }
+
+    const taxableIncome = Math.max(0, agi - standardDeduction - seniorDeduction);
+    const bracket = findTaxBracket(taxableIncome, filingStatus, year);
+    const taxBeforeCredits = Math.max(0, bracket.formula(taxableIncome));
+
+    // Child Tax Credit + Credit for Other Dependents, reduced by $50 per $1,000
+    // (or fraction) of MAGI over the threshold. Only the non-refundable portion
+    // is modeled, so the credit can't take tax below zero.
+    const creditThreshold = isJoint ? yearData.childCreditPhaseOut.joint : yearData.childCreditPhaseOut.other;
+    const grossCredit =
+        Math.max(0, inputs.numChildren) * yearData.childTaxCredit +
+        Math.max(0, inputs.numOtherDependents) * yearData.otherDependentCredit;
+    const creditReduction = 50 * Math.ceil(Math.max(0, agi - creditThreshold) / 1000);
+    const allowedCredit = Math.max(0, grossCredit - creditReduction);
+    const dependentCredit = Math.min(allowedCredit, taxBeforeCredits);
+
     return {
-        additional401k: additional401k || 0,
-        additionalIRA: additionalIRA || 0,
-        totalAdditional: totalAdditional,
-        taxSavings: taxSavings,
-        marginalRate: marginalRate * 100,
-        newMarginalRate: newBracket.rate * 100,
-        currentTaxableIncome: currentTaxableIncome,
-        newTaxableIncome: newTaxableIncome
+        magi,
+        agi,
+        iraDeduction,
+        iraDeductionInfo,
+        spouseIraDeductionInfo,
+        studentLoanDeduction,
+        standardDeduction,
+        seniorDeduction,
+        taxableIncome,
+        taxBeforeCredits,
+        dependentCredit,
+        taxObligation: taxBeforeCredits - dependentCredit,
+        marginalRate: bracket.rate * 100,
+        bracket
+    };
+}
+
+/**
+ * Tax saved by adding pre-tax contributions, found by recomputing the whole
+ * return, so IRA deductibility, phase-outs and credits are all reflected.
+ */
+export function estimateTaxSavings(
+    inputs: TaxInputs,
+    additional401k: number,
+    additionalIRA: number,
+    additionalSpouseIRA = 0
+): PotentialSavings {
+    const base = computeTax(inputs);
+    const changed = computeTax({
+        ...inputs,
+        retirementContributions: inputs.retirementContributions + additional401k,
+        iraContributions: inputs.iraContributions + additionalIRA,
+        spouseIraContributions: inputs.spouseIraContributions + additionalSpouseIRA
+    });
+
+    return {
+        additional401k,
+        additionalIRA: additionalIRA + additionalSpouseIRA,
+        totalAdditional: additional401k + additionalIRA + additionalSpouseIRA,
+        taxSavings: Math.max(0, base.taxObligation - changed.taxObligation),
+        marginalRate: base.marginalRate,
+        newMarginalRate: changed.marginalRate,
+        currentTaxableIncome: base.taxableIncome,
+        newTaxableIncome: changed.taxableIncome
     };
 }
 
 /**
  * Calculate federal tax obligation
  */
-export function calculateTax(
-    grossIncome: number,
-    filingStatus: FilingStatus,
-    isAge65Plus: boolean,
-    numDependents: number,
-    retirementContributions: number,
-    iraContributions: number,
-    hsaCoverageType: 'none' | 'selfOnly' | 'family',
-    hsaContributions: number,
-    healthInsurancePremiums: number,
-    fsaContributions: number,
-    studentLoanInterest: number,
-    educatorExpenses: number,
-    year: TaxYear,
-    isAge50Plus = false,
-    isCoveredByEmployerPlan = false,
-    isSpouseCoveredByEmployerPlan = false,
-    spouseIraContributions = 0,
-    spouseRetirementContributions = 0,
-    isSpouseAge50Plus = false,
-    isSpouseAge65Plus = false,
-    isNonDeductibleIRA = false,
-    isSpouseNonDeductibleIRA = false
-): TaxCalculationResult {
-    const isEligibleForCatchUp = isAge50Plus || isAge65Plus;
-    const isSpouseEligibleForCatchUp = isSpouseAge50Plus || isSpouseAge65Plus;
+export function calculateTax(inputs: TaxInputs): TaxCalculationResult {
+    const { filingStatus, year } = inputs;
     const yearData = getTaxYearData(year);
-    
-    const magi = calculateMAGI(
-        grossIncome,
-        retirementContributions,
-        spouseRetirementContributions,
-        hsaContributions,
-        healthInsurancePremiums,
-        fsaContributions,
-        studentLoanInterest,
-        educatorExpenses
-    );
-    
-    const iraDeductionInfo = calculateTraditionalIRADeductible(
-        magi,
-        filingStatus,
-        isCoveredByEmployerPlan,
-        isSpouseCoveredByEmployerPlan,
-        iraContributions,
-        year,
-        isEligibleForCatchUp
-    );
-    // If user explicitly marked as non-deductible, override the calculated amount
-    const deductibleIraAmount = isNonDeductibleIRA ? 0 : iraDeductionInfo.deductibleAmount;
-    
-    let spouseIraDeductionInfo: IRADeductionInfo | null = null;
-    let deductibleSpouseIraAmount = 0;
-    if (filingStatus === 'marriedJointly' && spouseIraContributions > 0) {
-        spouseIraDeductionInfo = calculateTraditionalIRADeductible(
-            magi,
-            filingStatus,
-            isSpouseCoveredByEmployerPlan,
-            isCoveredByEmployerPlan,
-            spouseIraContributions,
-            year,
-            isSpouseEligibleForCatchUp
-        );
-        // If spouse explicitly marked as non-deductible, override the calculated amount
-        deductibleSpouseIraAmount = isSpouseNonDeductibleIRA ? 0 : spouseIraDeductionInfo.deductibleAmount;
-    }
-    
-    const standardDeduction = calculateStandardDeduction(filingStatus, isAge65Plus, year);
-    
-    let adjustedIncome = Math.max(0, grossIncome - standardDeduction);
-    adjustedIncome = Math.max(0, adjustedIncome - retirementContributions);
-    adjustedIncome = Math.max(0, adjustedIncome - spouseRetirementContributions);
-    adjustedIncome = Math.max(0, adjustedIncome - deductibleIraAmount - deductibleSpouseIraAmount);
-    adjustedIncome = Math.max(0, adjustedIncome - hsaContributions);
-    adjustedIncome = Math.max(0, adjustedIncome - healthInsurancePremiums);
-    adjustedIncome = Math.max(0, adjustedIncome - fsaContributions);
-    adjustedIncome = Math.max(0, adjustedIncome - studentLoanInterest);
-    const taxableIncome = Math.max(0, adjustedIncome - educatorExpenses);
-    
-    const bracket = findTaxBracket(taxableIncome, filingStatus, year);
-    const bracketInfo = getBracketInfo(bracket);
-    
-    let taxObligation = bracket.formula(taxableIncome);
-    
-    const dependentCredit = numDependents * yearData.dependentCredit;
-    taxObligation = Math.max(0, taxObligation - dependentCredit);
-    
-    const effectiveRate = grossIncome > 0 ? (taxObligation / grossIncome) * 100 : 0;
-    
-    // Total deductions should only include deductible amounts
-    // Non-deductible IRA contributions are NOT pre-tax deductions
-    const totalDeductions = retirementContributions + 
+    const isJoint = filingStatus === 'marriedJointly';
+    const { bracket, ...core } = computeTax(inputs);
+
+    const spouseIraContributions = isJoint ? inputs.spouseIraContributions : 0;
+    const spouseRetirementContributions = isJoint ? inputs.spouseRetirementContributions : 0;
+
+    const totalDeductions =
+        inputs.retirementContributions +
         spouseRetirementContributions +
-        deductibleIraAmount + 
-        deductibleSpouseIraAmount + 
-        hsaContributions + 
-        healthInsurancePremiums + 
-        fsaContributions + 
-        studentLoanInterest + 
-        educatorExpenses;
-    
-    const retirementLimit = isEligibleForCatchUp ? yearData.retirementLimit.max : yearData.retirementLimit.standard;
-    const iraLimit = isEligibleForCatchUp ? yearData.iraLimit.max : yearData.iraLimit.standard;
-    
-    const maxAdditional401k = Math.max(0, retirementLimit - retirementContributions);
-    const maxAdditionalIRA = Math.max(0, iraLimit - iraContributions);
-    const maxAdditionalSpouseIRA = (filingStatus === 'marriedJointly') ? Math.max(0, iraLimit - spouseIraContributions) : 0;
-    
-    const potentialSavings401k = maxAdditional401k > 0 
-        ? calculatePotentialSavings(taxableIncome, filingStatus, year, Math.min(1000, maxAdditional401k), 0) 
-        : null;
-    const potentialSavingsIRA = maxAdditionalIRA > 0 
-        ? calculatePotentialSavings(taxableIncome, filingStatus, year, 0, Math.min(1000, maxAdditionalIRA)) 
-        : null;
-    const potentialSavingsMax401k = maxAdditional401k > 0 
-        ? calculatePotentialSavings(taxableIncome, filingStatus, year, maxAdditional401k, 0) 
-        : null;
-    const potentialSavingsMaxIRA = maxAdditionalIRA > 0 
-        ? calculatePotentialSavings(taxableIncome, filingStatus, year, 0, maxAdditionalIRA) 
-        : null;
-    
+        core.iraDeduction +
+        inputs.hsaContributions +
+        inputs.healthInsurancePremiums +
+        inputs.fsaContributions +
+        core.studentLoanDeduction +
+        inputs.educatorExpenses;
+
+    const totalContributions =
+        inputs.retirementContributions +
+        spouseRetirementContributions +
+        inputs.iraContributions +
+        spouseIraContributions +
+        inputs.hsaContributions +
+        inputs.healthInsurancePremiums +
+        inputs.fsaContributions;
+
+    const catchUp = isCatchUpEligible(inputs);
+    const retirementLimit = catchUp ? yearData.retirementLimit.max : yearData.retirementLimit.standard;
+    const iraLimit = catchUp ? yearData.iraLimit.max : yearData.iraLimit.standard;
+    const spouseIraLimit = isSpouseCatchUpEligible(inputs) ? yearData.iraLimit.max : yearData.iraLimit.standard;
+
+    const maxAdditional401k = Math.max(0, retirementLimit - inputs.retirementContributions);
+    const maxAdditionalIRA = Math.max(0, iraLimit - inputs.iraContributions);
+    const maxAdditionalSpouseIRA = isJoint ? Math.max(0, spouseIraLimit - spouseIraContributions) : 0;
+
     return {
-        grossIncome,
-        retirementContributions,
-        iraContributions,
-        hsaContributions,
-        healthInsurancePremiums,
-        fsaContributions,
-        studentLoanInterest,
-        educatorExpenses,
+        ...core,
+        grossIncome: inputs.grossIncome,
+        retirementContributions: inputs.retirementContributions,
+        spouseRetirementContributions,
+        iraContributions: inputs.iraContributions,
+        spouseIraContributions,
+        hsaContributions: inputs.hsaContributions,
+        healthInsurancePremiums: inputs.healthInsurancePremiums,
+        fsaContributions: inputs.fsaContributions,
+        studentLoanInterest: inputs.studentLoanInterest,
+        educatorExpenses: inputs.educatorExpenses,
         totalDeductions,
-        standardDeduction,
-        taxableIncome,
-        taxObligation,
-        effectiveRate,
-        marginalRate: bracket.rate * 100,
-        bracketInfo: bracketInfo,
-        dependentCredit,
+        totalContributions,
+        effectiveRate: inputs.grossIncome > 0 ? (core.taxObligation / inputs.grossIncome) * 100 : 0,
+        bracketInfo: getBracketInfo(bracket),
         year,
-        potentialSavings401k,
-        potentialSavingsIRA,
-        potentialSavingsMax401k,
-        potentialSavingsMaxIRA,
+        potentialSavings401k: maxAdditional401k > 0
+            ? estimateTaxSavings(inputs, Math.min(1000, maxAdditional401k), 0)
+            : null,
+        potentialSavingsIRA: maxAdditionalIRA > 0
+            ? estimateTaxSavings(inputs, 0, Math.min(1000, maxAdditionalIRA))
+            : null,
+        potentialSavingsMax401k: maxAdditional401k > 0
+            ? estimateTaxSavings(inputs, maxAdditional401k, 0)
+            : null,
+        potentialSavingsMaxIRA: maxAdditionalIRA > 0
+            ? estimateTaxSavings(inputs, 0, maxAdditionalIRA)
+            : null,
         maxAdditional401k,
         maxAdditionalIRA,
         maxAdditionalSpouseIRA,
         retirementLimit,
-        iraLimit,
-        magi,
-        iraDeductionInfo,
-        spouseIraContributions: filingStatus === 'marriedJointly' ? spouseIraContributions : 0,
-        spouseIraDeductionInfo
+        iraLimit
     };
 }
-
