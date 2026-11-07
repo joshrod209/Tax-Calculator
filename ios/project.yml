@@ -23,6 +23,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.joshrod209.TaxCalculator
+        DEVELOPMENT_TEAM: 3JVXFK3TCH
+        CODE_SIGN_STYLE: Automatic
         PRODUCT_NAME: Tax Calculator
         INFOPLIST_KEY_CFBundleDisplayName: Tax Calculator
         GENERATE_INFOPLIST_FILE: YES
