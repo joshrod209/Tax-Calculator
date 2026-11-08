@@ -18,8 +18,20 @@ private struct Fixture: Decodable {
         let expectedAllowed: Double
         let expectedEligible: Bool
     }
+    struct CATaxTable: Decodable { let rows: [[Double]] }
+    struct CAScheduleCases: Decodable {
+        struct Case: Decodable {
+            let year: TaxYear
+            let filingStatus: FilingStatus
+            let taxableIncome: Double
+            let expectedTax: Double
+        }
+        let cases: [Case]
+    }
     let cases: [Case]
     let rothCases: [RothCase]
+    let caTaxTable2025: CATaxTable
+    let caScheduleCases: CAScheduleCases
 }
 
 final class SharedFixtureTests: XCTestCase {
@@ -59,6 +71,33 @@ final class SharedFixtureTests: XCTestCase {
             )
             let sum = breakdown.reduce(0) { $0 + $1.taxInBracket }
             XCTAssertEqual(sum, result.taxBeforeCredits, accuracy: 0.01, "\(c.name): bracket breakdown sum")
+        }
+    }
+
+    func testCaliforniaTaxTable2025() throws {
+        let fixture = try loadFixture()
+        let ca = californiaData(.y2025)
+        let columns: [(FilingStatus, Int)] = [(.single, 2), (.marriedSeparately, 2), (.marriedJointly, 3), (.headOfHousehold, 4)]
+        XCTAssertGreaterThan(fixture.caTaxTable2025.rows.count, 50)
+        for row in fixture.caTaxTable2025.rows {
+            for (status, col) in columns {
+                let std = status == .marriedJointly || status == .headOfHousehold ? ca.standardDeductionJoint : ca.standardDeductionSingle
+                for taxable in [row[0], ((row[0] + row[1]) / 2).rounded(.down), row[1]] {
+                    var inputs = TaxInputs()
+                    inputs.year = .y2025
+                    inputs.filingStatus = status
+                    inputs.state = .CA
+                    let r = calculateStateTax(inputs, federalAgi: taxable + std, payrollWages: 0)!
+                    XCTAssertEqual(r.taxBeforeCredits, row[col], "\(status) taxable \(taxable)")
+                }
+            }
+        }
+    }
+
+    func testCaliforniaScheduleBases() throws {
+        for c in try loadFixture().caScheduleCases.cases {
+            XCTAssertEqual(californiaScheduleTax(year: c.year, filingStatus: c.filingStatus, taxable: c.taxableIncome),
+                           c.expectedTax, accuracy: 0.005, "\(c.year) \(c.filingStatus) \(c.taxableIncome)")
         }
     }
 

@@ -392,12 +392,12 @@
       },
       "expected": {
         "stateTax.taxableIncome": 94100,
-        "stateTax.taxBeforeCredits": 5068.86,
+        "stateTax.taxBeforeCredits": 5069,
         "stateTax.exemptionCredits": 158,
-        "stateIncomeTax": 4910.86,
+        "stateIncomeTax": 4911,
         "statePayrollTax": 1300,
         "taxObligation": 13170,
-        "takeHomePay": 72969.14,
+        "takeHomePay": 72969,
         "potentialSavings401k.taxSavings": 313
       }
     },
@@ -427,7 +427,7 @@
         "isRenter": true
       },
       "expected": {
-        "stateTax.taxBeforeCredits": 334.73,
+        "stateTax.taxBeforeCredits": 335,
         "stateIncomeTax": 0,
         "statePayrollTax": 520
       }
@@ -440,9 +440,9 @@
         "isRenter": true
       },
       "expected": {
-        "stateTax.taxBeforeCredits": 906.3,
+        "stateTax.taxBeforeCredits": 906,
         "stateTax.rentersCredit": 60,
-        "stateIncomeTax": 688.3
+        "stateIncomeTax": 688
       }
     },
     {
@@ -457,7 +457,7 @@
       "expected": {
         "agi": 75700,
         "stateTax.stateAgi": 80000,
-        "stateIncomeTax": 3065.12,
+        "stateIncomeTax": 3065,
         "statePayrollTax": 988
       }
     },
@@ -471,7 +471,7 @@
       "expected": {
         "taxableIncome": 33900,
         "stateTax.taxableIncome": 54100,
-        "stateIncomeTax": 1573.08
+        "stateIncomeTax": 1573
       }
     },
     {
@@ -507,10 +507,33 @@
         "state": "CA"
       },
       "expected": {
-        "stateTax.taxBeforeCredits": 2927.57,
+        "stateTax.taxBeforeCredits": 2928,
         "stateTax.exemptionCredits": 306,
-        "stateIncomeTax": 2621.57,
+        "stateIncomeTax": 2622,
         "statePayrollTax": 900
+      }
+    },
+    {
+      "name": "2025 California single, $300k: exemption credit worksheet ($153 \u2212 $6 \u00d7 20 steps)",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 300000,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.exemptionCredits": 33
+      }
+    },
+    {
+      "name": "2025 California married filing separately, $260k: $1,250 steps ($153 \u2212 $6 \u00d7 7)",
+      "inputs": {
+        "year": 2025,
+        "filingStatus": "marriedSeparately",
+        "grossIncome": 260000,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.exemptionCredits": 111
       }
     }
   ],
@@ -560,5 +583,723 @@
       "expectedAllowed": 4000,
       "expectedEligible": true
     }
-  ]
+  ],
+  "caTaxTable2025": {
+    "description": "Rows copied from FTB's 2025 California Tax Table (Form 540 booklet): [from, to, single/MFS, joint, head of household]. Any taxable income in a row must give that row's tax.",
+    "rows": [
+      [
+        1,
+        50,
+        0,
+        0,
+        0
+      ],
+      [
+        51,
+        150,
+        1,
+        1,
+        1
+      ],
+      [
+        151,
+        250,
+        2,
+        2,
+        2
+      ],
+      [
+        851,
+        950,
+        9,
+        9,
+        9
+      ],
+      [
+        2851,
+        2950,
+        29,
+        29,
+        29
+      ],
+      [
+        4551,
+        4650,
+        46,
+        46,
+        46
+      ],
+      [
+        5351,
+        5450,
+        54,
+        54,
+        54
+      ],
+      [
+        5951,
+        6050,
+        60,
+        60,
+        60
+      ],
+      [
+        7151,
+        7250,
+        72,
+        72,
+        72
+      ],
+      [
+        8451,
+        8550,
+        85,
+        85,
+        85
+      ],
+      [
+        8951,
+        9050,
+        90,
+        90,
+        90
+      ],
+      [
+        11451,
+        11550,
+        119,
+        115,
+        115
+      ],
+      [
+        11551,
+        11650,
+        121,
+        116,
+        116
+      ],
+      [
+        15551,
+        15650,
+        201,
+        156,
+        156
+      ],
+      [
+        23251,
+        23350,
+        355,
+        244,
+        244
+      ],
+      [
+        25251,
+        25350,
+        395,
+        284,
+        284
+      ],
+      [
+        25351,
+        25450,
+        397,
+        286,
+        286
+      ],
+      [
+        25951,
+        26050,
+        409,
+        298,
+        298
+      ],
+      [
+        26451,
+        26550,
+        424,
+        308,
+        308
+      ],
+      [
+        26751,
+        26850,
+        436,
+        314,
+        314
+      ],
+      [
+        26851,
+        26950,
+        440,
+        316,
+        316
+      ],
+      [
+        32151,
+        32250,
+        652,
+        422,
+        422
+      ],
+      [
+        32451,
+        32550,
+        664,
+        428,
+        428
+      ],
+      [
+        37951,
+        38050,
+        884,
+        538,
+        538
+      ],
+      [
+        38851,
+        38950,
+        920,
+        556,
+        556
+      ],
+      [
+        39751,
+        39850,
+        956,
+        574,
+        574
+      ],
+      [
+        40751,
+        40850,
+        996,
+        594,
+        594
+      ],
+      [
+        40851,
+        40950,
+        1000,
+        596,
+        596
+      ],
+      [
+        46251,
+        46350,
+        1313,
+        704,
+        704
+      ],
+      [
+        46351,
+        46450,
+        1319,
+        706,
+        706
+      ],
+      [
+        47851,
+        47950,
+        1409,
+        736,
+        736
+      ],
+      [
+        49551,
+        49650,
+        1511,
+        770,
+        770
+      ],
+      [
+        53051,
+        53150,
+        1721,
+        852,
+        852
+      ],
+      [
+        53551,
+        53650,
+        1751,
+        872,
+        872
+      ],
+      [
+        54051,
+        54150,
+        1781,
+        892,
+        892
+      ],
+      [
+        54251,
+        54350,
+        1793,
+        900,
+        900
+      ],
+      [
+        56851,
+        56950,
+        1949,
+        1004,
+        1004
+      ],
+      [
+        58251,
+        58350,
+        2048,
+        1060,
+        1060
+      ],
+      [
+        59451,
+        59550,
+        2144,
+        1108,
+        1108
+      ],
+      [
+        59551,
+        59650,
+        2152,
+        1112,
+        1112
+      ],
+      [
+        61651,
+        61750,
+        2320,
+        1196,
+        1196
+      ],
+      [
+        62651,
+        62750,
+        2400,
+        1236,
+        1236
+      ],
+      [
+        63651,
+        63750,
+        2480,
+        1276,
+        1276
+      ],
+      [
+        65351,
+        65450,
+        2616,
+        1344,
+        1344
+      ],
+      [
+        65851,
+        65950,
+        2656,
+        1364,
+        1364
+      ],
+      [
+        67551,
+        67650,
+        2792,
+        1432,
+        1432
+      ],
+      [
+        68351,
+        68450,
+        2856,
+        1464,
+        1477
+      ],
+      [
+        69951,
+        70050,
+        2984,
+        1528,
+        1573
+      ],
+      [
+        71551,
+        71650,
+        3112,
+        1592,
+        1669
+      ],
+      [
+        73251,
+        73350,
+        3256,
+        1660,
+        1771
+      ],
+      [
+        85151,
+        85250,
+        4362,
+        2182,
+        2513
+      ],
+      [
+        86251,
+        86350,
+        4465,
+        2248,
+        2601
+      ],
+      [
+        90251,
+        90350,
+        4837,
+        2488,
+        2921
+      ],
+      [
+        93351,
+        93450,
+        5125,
+        2674,
+        3169
+      ],
+      [
+        93751,
+        93850,
+        5162,
+        2698,
+        3201
+      ],
+      [
+        94851,
+        94950,
+        5264,
+        2764,
+        3289
+      ],
+      [
+        97451,
+        97550,
+        5506,
+        2920,
+        3497
+      ],
+      [
+        99651,
+        99750,
+        5711,
+        3052,
+        3682
+      ],
+      [
+        99951,
+        100000,
+        5736,
+        3068,
+        3708
+      ]
+    ]
+  },
+  "caScheduleCases": {
+    "description": "Tax at each bracket start in FTB's published 2025 and 2026 rate schedules (the 'Enter on Form 540, line 31' base amounts), plus the 2025 booklet's worked example.",
+    "cases": [
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 11079,
+        "expectedTax": 110.79
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 26264,
+        "expectedTax": 414.49
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 41452,
+        "expectedTax": 1022.01
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 57542,
+        "expectedTax": 1987.41
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 72724,
+        "expectedTax": 3201.97
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 371479,
+        "expectedTax": 30986.19
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 445771,
+        "expectedTax": 38638.27
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 742953,
+        "expectedTax": 72219.84
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 22158,
+        "expectedTax": 221.58
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 52528,
+        "expectedTax": 828.98
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 82904,
+        "expectedTax": 2044.02
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 115084,
+        "expectedTax": 3974.82
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 145448,
+        "expectedTax": 6403.94
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 742958,
+        "expectedTax": 61972.37
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 891542,
+        "expectedTax": 77276.52
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 1485906,
+        "expectedTax": 144439.65
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 22173,
+        "expectedTax": 221.73
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 52530,
+        "expectedTax": 828.87
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 67716,
+        "expectedTax": 1436.31
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 83805,
+        "expectedTax": 2401.65
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 98990,
+        "expectedTax": 3616.45
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 505208,
+        "expectedTax": 41394.72
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 606251,
+        "expectedTax": 51802.15
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 1010417,
+        "expectedTax": 97472.91
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 11456,
+        "expectedTax": 114.56
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 27157,
+        "expectedTax": 428.58
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 42861,
+        "expectedTax": 1056.74
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 59498,
+        "expectedTax": 2054.96
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 75197,
+        "expectedTax": 3310.88
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 384109,
+        "expectedTax": 32039.7
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 460927,
+        "expectedTax": 39951.95
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 768213,
+        "expectedTax": 74675.27
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 22912,
+        "expectedTax": 229.12
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 54314,
+        "expectedTax": 857.16
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 85722,
+        "expectedTax": 2113.48
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 118996,
+        "expectedTax": 4109.92
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 150394,
+        "expectedTax": 6621.76
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 768218,
+        "expectedTax": 64079.39
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 921854,
+        "expectedTax": 79903.9
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 1536426,
+        "expectedTax": 149350.54
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 22927,
+        "expectedTax": 229.27
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 54316,
+        "expectedTax": 857.05
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 70018,
+        "expectedTax": 1485.13
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 86654,
+        "expectedTax": 2483.29
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 102356,
+        "expectedTax": 3739.45
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 522385,
+        "expectedTax": 42802.15
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 626864,
+        "expectedTax": 53563.49
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 1044771,
+        "expectedTax": 100786.98
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 125000,
+        "expectedTax": 4768.1,
+        "note": "FTB booklet example (Chris and Pat Smith)"
+      }
+    ]
+  }
 }

@@ -8,6 +8,7 @@ import { calculateTax, type TaxInputs } from '../lib/tax-calculations';
 import { calculateTaxBracketBreakdown } from '../lib/utils';
 import { checkRothIRAEligibility } from '../lib/ira-calculations';
 import { TAX_YEAR_DATA, type FilingStatus, type TaxYear } from '../lib/data';
+import { CALIFORNIA_DATA, calculateStateTax, californiaScheduleTax } from '../lib/state-tax';
 
 interface FixtureCase {
     name: string;
@@ -60,10 +61,37 @@ interface RothCase {
     expectedEligible: boolean;
 }
 
-const { cases, rothCases } = JSON.parse(readFileSync(fixturePath, 'utf8')) as {
+const { cases, rothCases, caTaxTable2025, caScheduleCases } = JSON.parse(readFileSync(fixturePath, 'utf8')) as {
     cases: FixtureCase[];
     rothCases: RothCase[];
+    caTaxTable2025: { rows: [number, number, number, number, number][] };
+    caScheduleCases: { cases: { year: TaxYear; filingStatus: FilingStatus; taxableIncome: number; expectedTax: number }[] };
 };
+
+test('California 2025 tax matches FTB tax table rows', () => {
+    const ca = CALIFORNIA_DATA[2025];
+    const columns: [FilingStatus, number][] = [['single', 2], ['marriedSeparately', 2], ['marriedJointly', 3], ['headOfHousehold', 4]];
+    for (const row of caTaxTable2025.rows) {
+        const [from, to] = row;
+        for (const [status, col] of columns) {
+            const std = status === 'marriedJointly' || status === 'headOfHousehold' ? ca.standardDeduction.joint : ca.standardDeduction.single;
+            for (const taxable of [from, Math.floor((from + to) / 2), to]) {
+                const r = calculateStateTax({
+                    state: 'CA', year: 2025, filingStatus: status, isAge65Plus: false, isSpouseAge65Plus: false,
+                    numChildren: 0, numOtherDependents: 0, hsaContributions: 0, educatorExpenses: 0, isRenter: false
+                }, taxable + std, 0)!;
+                assert.equal(r.taxBeforeCredits, row[col], `${status} taxable ${taxable}`);
+            }
+        }
+    }
+});
+
+test('California rate schedules match FTB published amounts', () => {
+    for (const c of caScheduleCases.cases) {
+        const tax = californiaScheduleTax(c.year, c.filingStatus, c.taxableIncome);
+        assert.ok(Math.abs(tax - c.expectedTax) < 0.005, `${c.year} ${c.filingStatus} ${c.taxableIncome}: expected ${c.expectedTax}, got ${tax}`);
+    }
+});
 
 for (const c of cases) {
     test(c.name, () => {

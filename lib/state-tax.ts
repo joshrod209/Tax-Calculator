@@ -12,6 +12,8 @@ interface StateBracket {
     rate: number;
     /** Taxable income where this bracket starts */
     over: number;
+    /** Tax on income below `over`, as FTB publishes it (each bracket's tax rounded to the cent) */
+    base: number;
 }
 
 /**
@@ -56,20 +58,42 @@ const CA_BEHAVIORAL_HEALTH = { rate: 0.01, threshold: 1000000 };
 
 function caBrackets(starts: number[]): StateBracket[] {
     const rates = [0.01, 0.02, 0.04, 0.06, 0.08, 0.093, 0.103, 0.113, 0.123];
-    return starts.map((over, i) => ({ over, rate: rates[i] }));
+    let base = 0;
+    return starts.map((over, i) => {
+        if (i > 0) base += Math.round((over - starts[i - 1]) * rates[i - 1] * 100) / 100;
+        return { over, rate: rates[i], base };
+    });
 }
 
+/** Schedule X/Y/Z: the bracket's published base plus its rate on the income above where it starts */
 function bracketTax(taxable: number, brackets: StateBracket[]): { tax: number; rate: number } {
-    let tax = 0;
-    let rate = brackets[0].rate;
-    brackets.forEach((b, i) => {
-        const next = i + 1 < brackets.length ? brackets[i + 1].over : Infinity;
-        if (taxable > b.over) {
-            tax += (Math.min(taxable, next) - b.over) * b.rate;
-            rate = b.rate;
-        }
-    });
-    return { tax, rate };
+    let b = brackets[0];
+    for (const candidate of brackets) if (taxable > candidate.over) b = candidate;
+    return { tax: b.base + Math.max(0, taxable - b.over) * b.rate, rate: b.rate };
+}
+
+/**
+ * California's tax table (Form 540, taxable income up to $100,000) has $100 rows:
+ * $1–$50, $51–$150, …, $99,951–$100,000. Each row's tax is the rate-schedule tax on
+ * the row's midpoint rounded down to a whole dollar, rounded to whole dollars. This
+ * reproduces every entry of FTB's published 2025 table.
+ */
+const CA_TAX_TABLE_LIMIT = 100000;
+function caTaxTableIncome(taxable: number): number {
+    const x = Math.round(taxable); // the return uses whole dollars
+    if (x <= 0) return 0;
+    if (x <= 50) return 25;
+    const lo = Math.floor((x - 51) / 100) * 100 + 51;
+    const hi = Math.min(lo + 99, CA_TAX_TABLE_LIMIT);
+    return Math.floor((lo + hi) / 2);
+}
+
+/** California rate-schedule tax (Schedules X, Y, Z) on a taxable income, before credits */
+export function californiaScheduleTax(year: TaxYear, filingStatus: FilingStatus, taxable: number): number {
+    const b = CALIFORNIA_DATA[year].brackets;
+    const brackets = filingStatus === 'marriedJointly' ? b.marriedJointly
+        : filingStatus === 'headOfHousehold' ? b.headOfHousehold : b.single;
+    return bracketTax(taxable, brackets).tax;
 }
 
 export interface StateTaxInputs {
@@ -108,8 +132,8 @@ export interface StateTaxResult {
  * Starts from federal AGI and adds back what California doesn't allow (HSA
  * contributions, educator expenses). California has no tips, overtime, car loan,
  * or senior deduction. CalEITC and the Young Child Tax Credit aren't modeled.
- * California's tax table (income up to $100k) rounds to $50/$100 rows, so the
- * return can differ from this exact rate-schedule amount by a dollar or so.
+ * Up to $100,000 of taxable income the tax comes from FTB's tax table (whole
+ * dollars); above that, from the rate schedule.
  */
 export function calculateStateTax(
     inputs: StateTaxInputs,
@@ -131,7 +155,10 @@ export function calculateStateTax(
         status === 'marriedJointly' ? ca.brackets.marriedJointly
             : status === 'headOfHousehold' ? ca.brackets.headOfHousehold
                 : ca.brackets.single;
-    const { tax: taxBeforeCredits, rate } = bracketTax(taxableIncome, brackets);
+    const { rate } = bracketTax(taxableIncome, brackets);
+    const taxBeforeCredits = Math.round(taxableIncome) <= CA_TAX_TABLE_LIMIT
+        ? Math.round(bracketTax(caTaxTableIncome(taxableIncome), brackets).tax)
+        : bracketTax(taxableIncome, brackets).tax;
 
     // Form 540 lines 7–10: one personal credit each (two on a joint return), one more per
     // person 65+, and one per dependent. The AGI Limitation Worksheet uses federal AGI.

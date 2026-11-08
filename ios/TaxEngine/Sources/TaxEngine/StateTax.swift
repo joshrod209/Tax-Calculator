@@ -18,6 +18,8 @@ struct StateBracket: Sendable {
     let rate: Double
     /// Taxable income where this bracket starts
     let over: Double
+    /// Tax on income below `over`, as FTB publishes it (each bracket's tax rounded to the cent)
+    let base: Double
 }
 
 struct CaliforniaYearData: Sendable {
@@ -41,7 +43,11 @@ struct CaliforniaYearData: Sendable {
 
 private func caBrackets(_ starts: [Double]) -> [StateBracket] {
     let rates = [0.01, 0.02, 0.04, 0.06, 0.08, 0.093, 0.103, 0.113, 0.123]
-    return starts.enumerated().map { StateBracket(rate: rates[$0.offset], over: $0.element) }
+    var base = 0.0
+    return starts.enumerated().map { i, over in
+        if i > 0 { base += ((over - starts[i - 1]) * rates[i - 1] * 100).rounded() / 100 }
+        return StateBracket(rate: rates[i], over: over, base: base)
+    }
 }
 
 /// California figures from FTB Tax News (October 2025 and October 2026 indexing announcements),
@@ -85,17 +91,35 @@ func californiaData(_ year: TaxYear) -> CaliforniaYearData {
 private let caBehavioralHealthRate = 0.01
 private let caBehavioralHealthThreshold = 1_000_000.0
 
+/// Schedule X/Y/Z: the bracket's published base plus its rate on the income above where it starts
 private func bracketTax(_ taxable: Double, _ brackets: [StateBracket]) -> (tax: Double, rate: Double) {
-    var tax = 0.0
-    var rate = brackets[0].rate
-    for (i, b) in brackets.enumerated() {
-        let next = i + 1 < brackets.count ? brackets[i + 1].over : .infinity
-        if taxable > b.over {
-            tax += (min(taxable, next) - b.over) * b.rate
-            rate = b.rate
-        }
+    var b = brackets[0]
+    for candidate in brackets where taxable > candidate.over { b = candidate }
+    return (b.base + max(0, taxable - b.over) * b.rate, b.rate)
+}
+
+/// California's tax table (Form 540, taxable income up to $100,000) has $100 rows: $1–$50,
+/// $51–$150, …, $99,951–$100,000. Each row's tax is the rate-schedule tax on the row's midpoint
+/// rounded down to a whole dollar, rounded to whole dollars. This reproduces every entry of
+/// FTB's published 2025 table.
+private let caTaxTableLimit = 100_000.0
+private func caTaxTableIncome(_ taxable: Double) -> Double {
+    let x = taxable.rounded() // the return uses whole dollars
+    if x <= 0 { return 0 }
+    if x <= 50 { return 25 }
+    let lo = ((x - 51) / 100).rounded(.down) * 100 + 51
+    let hi = min(lo + 99, caTaxTableLimit)
+    return ((lo + hi) / 2).rounded(.down)
+}
+
+/// California rate-schedule tax (Schedules X, Y, Z) on a taxable income, before credits
+public func californiaScheduleTax(year: TaxYear, filingStatus: FilingStatus, taxable: Double) -> Double {
+    let ca = californiaData(year)
+    switch filingStatus {
+    case .marriedJointly: return bracketTax(taxable, ca.marriedJointly).tax
+    case .headOfHousehold: return bracketTax(taxable, ca.headOfHousehold).tax
+    case .single, .marriedSeparately: return bracketTax(taxable, ca.single).tax
     }
-    return (tax, rate)
 }
 
 public struct StateTaxResult: Codable, Sendable, Equatable {
@@ -119,8 +143,8 @@ public struct StateTaxResult: Codable, Sendable, Equatable {
 /// California resident income tax (Form 540) on wages, using the standard deduction. Starts from
 /// federal AGI and adds back what California doesn't allow (HSA contributions, educator expenses).
 /// California has no tips, overtime, car loan, or senior deduction. CalEITC and the Young Child Tax
-/// Credit aren't modeled. California's tax table (income up to $100k) rounds to $50/$100 rows, so
-/// the return can differ from this exact rate-schedule amount by a dollar or so.
+/// Credit aren't modeled. Up to $100,000 of taxable income the tax comes from FTB's tax table (whole
+/// dollars); above that, from the rate schedule.
 public func calculateStateTax(_ inputs: TaxInputs, federalAgi: Double, payrollWages: Double) -> StateTaxResult? {
     guard inputs.state == .CA else { return nil }
 
@@ -139,7 +163,10 @@ public func calculateStateTax(_ inputs: TaxInputs, federalAgi: Double, payrollWa
     case .headOfHousehold: brackets = ca.headOfHousehold
     case .single, .marriedSeparately: brackets = ca.single
     }
-    let (taxBeforeCredits, rate) = bracketTax(taxableIncome, brackets)
+    let rate = bracketTax(taxableIncome, brackets).rate
+    let taxBeforeCredits = taxableIncome.rounded() <= caTaxTableLimit
+        ? bracketTax(caTaxTableIncome(taxableIncome), brackets).tax.rounded()
+        : bracketTax(taxableIncome, brackets).tax
 
     // Form 540 lines 7–10: one personal credit each (two on a joint return), one more per
     // person 65+, and one per dependent. The AGI Limitation Worksheet uses federal AGI.
