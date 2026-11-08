@@ -7,11 +7,15 @@ import {
     getBracketInfo
 } from './utils';
 import { calculateTraditionalIRADeductible, type IRADeductionInfo } from './ira-calculations';
+import { calculateStateTax, type StateCode, type StateTaxResult } from './state-tax';
 
 export interface TaxInputs {
     year: TaxYear;
     filingStatus: FilingStatus;
+    /** Total wages for the return (both spouses on a joint return) */
     grossIncome: number;
+    /** Joint returns: the part of grossIncome your spouse earns (each worker has their own Social Security wage base) */
+    spouseWages: number;
     isAge50Plus: boolean;
     isAge65Plus: boolean;
     isSpouseAge50Plus: boolean;
@@ -36,6 +40,17 @@ export interface TaxInputs {
     educatorExpenses: number;
     isCoveredByEmployerPlan: boolean;
     isSpouseCoveredByEmployerPlan: boolean;
+    /** Tips from a tipped occupation, already included in grossIncome */
+    qualifiedTips: number;
+    /** The extra "half" of time-and-a-half overtime pay, already included in grossIncome */
+    qualifiedOvertime: number;
+    /** Interest on a loan for a new, US-assembled personal vehicle taken out after 2024 */
+    carLoanInterest: number;
+    /** Cash gifts to charity (deductible without itemizing from 2026) */
+    charitableDonations: number;
+    state: StateCode;
+    /** Rents their home in the state (California renter's credit) */
+    isRenter: boolean;
 }
 
 export interface PotentialSavings {
@@ -59,10 +74,20 @@ interface TaxCore {
     studentLoanDeduction: number;
     standardDeduction: number;
     seniorDeduction: number;
+    tipsDeduction: number;
+    overtimeDeduction: number;
+    carLoanInterestDeduction: number;
+    charitableDeduction: number;
     taxableIncome: number;
     taxBeforeCredits: number;
+    /** Non-refundable Child Tax Credit + Credit for Other Dependents actually used */
     dependentCredit: number;
+    /** Income tax after non-refundable credits (never below zero) */
     taxObligation: number;
+    /** Refundable part of the Child Tax Credit (Additional Child Tax Credit) */
+    refundableChildCredit: number;
+    /** taxObligation minus refundable credits; negative means a refund */
+    netIncomeTax: number;
     marginalRate: number;
     bracket: ReturnType<typeof findTaxBracket>;
 }
@@ -82,7 +107,21 @@ export interface TaxCalculationResult extends Omit<TaxCore, 'bracket'> {
     totalDeductions: number;
     /** Cash set aside from pay: retirement, IRA, HSA, premiums, FSA */
     totalContributions: number;
+    /** Income tax rate after all credits, as % of gross income */
     effectiveRate: number;
+    /** Wages subject to payroll tax: gross minus cafeteria-plan items (HSA, premiums, FSA); 401(k) is still taxed */
+    payrollWages: number;
+    socialSecurityTax: number;
+    /** Medicare including the 0.9% Additional Medicare Tax */
+    medicareTax: number;
+    payrollTax: number;
+    /** State income tax details, or null when no state is selected */
+    stateTax: StateTaxResult | null;
+    stateIncomeTax: number;
+    /** State payroll tax withheld from wages (California SDI) */
+    statePayrollTax: number;
+    /** Gross income − federal and state income tax − payroll taxes − money set aside (retirement, IRA, HSA, premiums, FSA) */
+    takeHomePay: number;
     bracketInfo: ReturnType<typeof getBracketInfo>;
     year: TaxYear;
     potentialSavings401k: PotentialSavings | null;
@@ -94,6 +133,36 @@ export interface TaxCalculationResult extends Omit<TaxCore, 'bracket'> {
     maxAdditionalSpouseIRA: number;
     retirementLimit: number;
     iraLimit: number;
+}
+
+export interface PayrollTax {
+    payrollWages: number;
+    socialSecurityTax: number;
+    medicareTax: number;
+    payrollTax: number;
+}
+
+/**
+ * Employee share of Social Security and Medicare on wages. Cafeteria-plan items
+ * (HSA through payroll, health premiums, health FSA) are exempt; 401(k)
+ * deferrals are not. On a joint return the Social Security wage base applies to
+ * each spouse's wages, and Additional Medicare Tax to their combined wages.
+ */
+export function calculatePayrollTax(inputs: TaxInputs): PayrollTax {
+    const p = getTaxYearData(inputs.year).payroll;
+    const isJoint = inputs.filingStatus === 'marriedJointly';
+    const exempt = inputs.hsaContributions + inputs.healthInsurancePremiums + inputs.fsaContributions;
+    const payrollWages = Math.max(0, inputs.grossIncome - exempt);
+    const spouseWages = isJoint ? Math.min(Math.max(0, inputs.spouseWages), payrollWages) : 0;
+    const yourWages = payrollWages - spouseWages;
+
+    const socialSecurityTax =
+        p.socialSecurityRate * (Math.min(yourWages, p.socialSecurityWageBase) + Math.min(spouseWages, p.socialSecurityWageBase));
+    const threshold = p.additionalMedicareThreshold[inputs.filingStatus];
+    const medicareTax =
+        p.medicareRate * payrollWages + p.additionalMedicareRate * Math.max(0, payrollWages - threshold);
+
+    return { payrollWages, socialSecurityTax, medicareTax, payrollTax: socialSecurityTax + medicareTax };
 }
 
 const isCatchUpEligible = (inputs: TaxInputs) => inputs.isAge50Plus || inputs.isAge65Plus;
@@ -182,7 +251,28 @@ function computeTax(inputs: TaxInputs): TaxCore {
         seniorDeduction = qualifying * perPerson;
     }
 
-    const taxableIncome = Math.max(0, agi - standardDeduction - seniorDeduction);
+    // Schedule 1-A deductions for tips, overtime and car loan interest; MAGI here is AGI
+    const overBy = (threshold: number) => Math.max(0, agi - threshold) / 1000;
+    let tipsDeduction = 0;
+    let overtimeDeduction = 0;
+    if (filingStatus !== 'marriedSeparately') {
+        const tips = yearData.tipsDeduction;
+        tipsDeduction = Math.max(0, Math.min(Math.max(0, inputs.qualifiedTips), tips.max) -
+            tips.reductionPer1000 * Math.floor(overBy(isJoint ? tips.joint : tips.other)));
+        const ot = yearData.overtimeDeduction;
+        overtimeDeduction = Math.max(0, Math.min(Math.max(0, inputs.qualifiedOvertime), isJoint ? ot.maxJoint : ot.maxOther) -
+            ot.reductionPer1000 * Math.floor(overBy(isJoint ? ot.joint : ot.other)));
+    }
+    const car = yearData.carLoanInterestDeduction;
+    const carLoanInterestDeduction = Math.max(0, Math.min(Math.max(0, inputs.carLoanInterest), car.max) -
+        car.reductionPer1000 * Math.ceil(overBy(isJoint ? car.joint : car.other)));
+    const charitableDeduction = Math.min(
+        Math.max(0, inputs.charitableDonations),
+        isJoint ? yearData.charitableDeduction.joint : yearData.charitableDeduction.other
+    );
+
+    const taxableIncome = Math.max(0, agi - standardDeduction - seniorDeduction - tipsDeduction -
+        overtimeDeduction - carLoanInterestDeduction - charitableDeduction);
     const bracket = findTaxBracket(taxableIncome, filingStatus, year);
     const taxBeforeCredits = Math.max(0, bracket.formula(taxableIncome));
 
@@ -197,6 +287,19 @@ function computeTax(inputs: TaxInputs): TaxCore {
     const allowedCredit = Math.max(0, grossCredit - creditReduction);
     const dependentCredit = Math.min(allowedCredit, taxBeforeCredits);
 
+    // Refundable part (Schedule 8812): the unused credit, capped per child and at
+    // 15% of earned income over $2,500. Earned income is taxable wages (pay after
+    // 401(k) and cafeteria-plan deductions). The 3+ children alternative needs the
+    // Earned Income Credit, which isn't modeled, so only the 15% method is used.
+    const refundable = yearData.refundableChildCredit;
+    const earnedIncome = magi + inputs.educatorExpenses;
+    const refundableChildCredit = Math.max(0, Math.min(
+        allowedCredit - dependentCredit,
+        Math.max(0, inputs.numChildren) * refundable.maxPerChild,
+        refundable.rate * Math.max(0, earnedIncome - refundable.earnedIncomeThreshold)
+    ));
+    const taxObligation = taxBeforeCredits - dependentCredit;
+
     return {
         magi,
         agi,
@@ -206,18 +309,34 @@ function computeTax(inputs: TaxInputs): TaxCore {
         studentLoanDeduction,
         standardDeduction,
         seniorDeduction,
+        tipsDeduction,
+        overtimeDeduction,
+        carLoanInterestDeduction,
+        charitableDeduction,
         taxableIncome,
         taxBeforeCredits,
         dependentCredit,
-        taxObligation: taxBeforeCredits - dependentCredit,
+        taxObligation,
+        refundableChildCredit,
+        netIncomeTax: taxObligation - refundableChildCredit,
         marginalRate: bracket.rate * 100,
         bracket
     };
 }
 
+/** Federal plus state income tax for a set of inputs */
+function totalIncomeTax(inputs: TaxInputs, core: TaxCore): number {
+    return core.netIncomeTax + (stateTaxFor(inputs, core)?.incomeTax ?? 0);
+}
+
+function stateTaxFor(inputs: TaxInputs, core: TaxCore): StateTaxResult | null {
+    return calculateStateTax(inputs, core.agi, calculatePayrollTax(inputs).payrollWages);
+}
+
 /**
  * Tax saved by adding pre-tax contributions, found by recomputing the whole
- * return, so IRA deductibility, phase-outs and credits are all reflected.
+ * return (federal and state), so IRA deductibility, phase-outs and credits are
+ * all reflected.
  */
 export function estimateTaxSavings(
     inputs: TaxInputs,
@@ -225,19 +344,20 @@ export function estimateTaxSavings(
     additionalIRA: number,
     additionalSpouseIRA = 0
 ): PotentialSavings {
-    const base = computeTax(inputs);
-    const changed = computeTax({
+    const changedInputs = {
         ...inputs,
         retirementContributions: inputs.retirementContributions + additional401k,
         iraContributions: inputs.iraContributions + additionalIRA,
         spouseIraContributions: inputs.spouseIraContributions + additionalSpouseIRA
-    });
+    };
+    const base = computeTax(inputs);
+    const changed = computeTax(changedInputs);
 
     return {
         additional401k,
         additionalIRA: additionalIRA + additionalSpouseIRA,
         totalAdditional: additional401k + additionalIRA + additionalSpouseIRA,
-        taxSavings: Math.max(0, base.taxObligation - changed.taxObligation),
+        taxSavings: Math.max(0, totalIncomeTax(inputs, base) - totalIncomeTax(changedInputs, changed)),
         marginalRate: base.marginalRate,
         newMarginalRate: changed.marginalRate,
         currentTaxableIncome: base.taxableIncome,
@@ -281,6 +401,11 @@ export function calculateTax(inputs: TaxInputs): TaxCalculationResult {
     const iraLimit = catchUp ? yearData.iraLimit.max : yearData.iraLimit.standard;
     const spouseIraLimit = isSpouseCatchUpEligible(inputs) ? yearData.iraLimit.max : yearData.iraLimit.standard;
 
+    const payroll = calculatePayrollTax(inputs);
+    const stateTax = calculateStateTax(inputs, core.agi, payroll.payrollWages);
+    const stateIncomeTax = stateTax?.incomeTax ?? 0;
+    const statePayrollTax = stateTax?.disabilityInsurance ?? 0;
+
     const maxAdditional401k = Math.max(0, retirementLimit - inputs.retirementContributions);
     const maxAdditionalIRA = Math.max(0, iraLimit - inputs.iraContributions);
     const maxAdditionalSpouseIRA = isJoint ? Math.max(0, spouseIraLimit - spouseIraContributions) : 0;
@@ -299,7 +424,13 @@ export function calculateTax(inputs: TaxInputs): TaxCalculationResult {
         educatorExpenses: inputs.educatorExpenses,
         totalDeductions,
         totalContributions,
-        effectiveRate: inputs.grossIncome > 0 ? (core.taxObligation / inputs.grossIncome) * 100 : 0,
+        effectiveRate: inputs.grossIncome > 0 ? (core.netIncomeTax / inputs.grossIncome) * 100 : 0,
+        ...payroll,
+        stateTax,
+        stateIncomeTax,
+        statePayrollTax,
+        takeHomePay: inputs.grossIncome - core.netIncomeTax - payroll.payrollTax - totalContributions -
+            stateIncomeTax - statePayrollTax,
         bracketInfo: getBracketInfo(bracket),
         year,
         potentialSavings401k: maxAdditional401k > 0

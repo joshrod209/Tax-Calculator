@@ -199,7 +199,12 @@ export function checkRothIRAEligibility(
     const phaseOutRange = limitSet.phaseOutEnd - limitSet.phaseOutStart;
     const amountOverStart = magi - limitSet.phaseOutStart;
     const phaseOutPercentage = Math.max(0, 100 - (amountOverStart / phaseOutRange * 100));
-    const allowedContribution = Math.max(0, maxContribution * (phaseOutPercentage / 100));
+    // IRS worksheet (Pub 590-A): round the reduced limit up to the next $10,
+    // and allow at least $200 while any contribution is allowed
+    let allowedContribution = Math.max(0, maxContribution * (phaseOutPercentage / 100));
+    if (allowedContribution % 10 !== 0) allowedContribution = Math.ceil(allowedContribution / 10) * 10;
+    if (allowedContribution > 0 && allowedContribution < 200) allowedContribution = 200;
+    allowedContribution = Math.min(allowedContribution, maxContribution);
     
     return { 
         isEligible: true, 

@@ -15,7 +15,7 @@ const spaceMono = Space_Mono({
 
 export const metadata: Metadata = {
   title: 'Federal Tax Calculator',
-  description: 'Real-time federal income tax estimates for 2025 and 2026',
+  description: 'Real-time federal and California income tax estimates for 2025 and 2026',
 }
 
 export default function RootLayout({

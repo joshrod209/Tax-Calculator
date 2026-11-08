@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Wallet, TrendingDown, GraduationCap, BookOpen, Heart, GraduationCap as GradCap } from 'lucide-react'
+import { Wallet, TrendingDown, GraduationCap, BookOpen, Heart, GraduationCap as GradCap, Sparkles } from 'lucide-react'
 import { ChevronDown } from 'lucide-react'
 import { useTaxCalculator } from '@/hooks/useTaxCalculator'
 import { getTaxYearData, calculateMAGI, formatMoney } from '@/lib/utils'
@@ -9,6 +9,37 @@ import { calculateTraditionalIRADeductible, checkRothIRAEligibility } from '@/li
 import IRAWarningModal from './IRAWarningModal'
 import CollapsibleSection from './CollapsibleSection'
 import HelpTooltip from './HelpTooltip'
+import { STATES, type StateCode } from '@/lib/state-tax'
+
+function MoneyField({ label, help, value, onChange, note }: {
+  label: string
+  help: string
+  value: number
+  onChange: (value: number) => void
+  note?: string
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <label className="block text-sm font-semibold text-slate-600">{label}</label>
+        <HelpTooltip content={help} />
+      </div>
+      <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+        <input
+          type="number"
+          value={value || ''}
+          onChange={(e) => onChange(Math.max(0, parseFloat(e.target.value) || 0))}
+          placeholder="0"
+          min="0"
+          aria-label={label}
+          className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+        />
+      </div>
+      {note && <p className="text-xs text-slate-500 mt-1">{note}</p>}
+    </div>
+  )
+}
 
 interface InputSectionProps {
   calculator: ReturnType<typeof useTaxCalculator>
@@ -226,6 +257,40 @@ export default function InputSection({ calculator }: InputSectionProps) {
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-2 ml-1">State</label>
+            <div className="relative">
+              <select
+                value={inputs.state}
+                onChange={(e) => {
+                  updateInput('state', e.target.value as StateCode)
+                  if (e.target.value === 'none') updateInput('isRenter', false)
+                }}
+                aria-label="State"
+                className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-900 text-lg font-medium rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              >
+                {STATES.map(s => (
+                  <option key={s.code} value={s.code}>{s.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+            </div>
+          </div>
+
+          <div className="flex items-end">
+            {inputs.state === 'CA' && (
+              <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={inputs.isRenter}
+                  onChange={(e) => updateInput('isRenter', e.target.checked)}
+                  className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                />
+                <span className="text-sm font-semibold text-slate-600">I rent my home (renter&apos;s credit)</span>
+              </label>
+            )}
+          </div>
+
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center gap-2 mb-2 ml-1">
               <label className="block text-sm font-semibold text-slate-600">Gross Annual Income</label>
@@ -245,6 +310,29 @@ export default function InputSection({ calculator }: InputSectionProps) {
               />
             </div>
           </div>
+
+          {inputs.filingStatus === 'marriedJointly' && (
+            <div className="col-span-1 md:col-span-2">
+              <div className="flex items-center gap-2 mb-2 ml-1">
+                <label className="block text-sm font-semibold text-slate-600">Spouse&apos;s Share of Income</label>
+                <HelpTooltip content="How much of the gross income above your spouse earns. Social Security tax stops at a yearly wage cap for each worker, so a two-earner couple can pay more of it than a one-earner couple with the same total." />
+              </div>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                <input
+                  type="number"
+                  value={inputs.spouseWages || ''}
+                  onChange={(e) => updateInput('spouseWages', Math.min(parseFloat(e.target.value) || 0, inputs.grossIncome))}
+                  placeholder="0"
+                  min="0"
+                  max={inputs.grossIncome}
+                  aria-label="Spouse's Share of Income"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                />
+              </div>
+              <p className="text-xs text-slate-500 mt-1 ml-1">Only affects Social Security tax. Leave at $0 if one of you earns it all.</p>
+            </div>
+          )}
 
           <div className="col-span-1 md:col-span-2">
             <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
@@ -729,6 +817,55 @@ export default function InputSection({ calculator }: InputSectionProps) {
                 <p className="text-xs text-slate-500 mt-1">{inputs.year} limit: {formatMoney(yearData.educatorExpensesLimit)}</p>
               </div>
             </div>
+          </CollapsibleSection>
+
+          {/* Tips, overtime, car loan, charity (Schedule 1-A and the 2026 charitable deduction) */}
+          <CollapsibleSection
+            title="Tips, Overtime & Car Loan"
+            icon={<Sparkles className="w-4 h-4 text-slate-500" />}
+            defaultOpen={inputs.qualifiedTips > 0 || inputs.qualifiedOvertime > 0 || inputs.carLoanInterest > 0 || inputs.charitableDonations > 0}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <MoneyField
+                label="Tips"
+                help="Tips from a job on the IRS tipped-occupations list, included in your income above. Deduct up to $25,000; phases out above $150,000 income ($300,000 joint)."
+                value={inputs.qualifiedTips}
+                onChange={(v) => {
+                  const tips = Math.min(v, inputs.grossIncome)
+                  updateInput('qualifiedTips', tips)
+                  updateInput('qualifiedOvertime', Math.min(inputs.qualifiedOvertime, inputs.grossIncome - tips))
+                }}
+                note={inputs.filingStatus === 'marriedSeparately' ? 'Not deductible when married filing separately' : 'Deduct up to $25,000'}
+              />
+              <MoneyField
+                label="Overtime premium"
+                help="Only the extra half of time-and-a-half pay (the part above your regular rate), included in your income above. Deduct up to $12,500 ($25,000 joint); phases out above $150,000 income ($300,000 joint)."
+                value={inputs.qualifiedOvertime}
+                onChange={(v) => updateInput('qualifiedOvertime', Math.min(v, inputs.grossIncome - inputs.qualifiedTips))}
+                note={inputs.filingStatus === 'marriedSeparately'
+                  ? 'Not deductible when married filing separately'
+                  : `Deduct up to ${formatMoney(inputs.filingStatus === 'marriedJointly' ? yearData.overtimeDeduction.maxJoint : yearData.overtimeDeduction.maxOther)}`}
+              />
+              <MoneyField
+                label="Car loan interest"
+                help="Interest on a loan taken out after 2024 for a new car, SUV, van, pickup or motorcycle assembled in the US, for personal use. Deduct up to $10,000; phases out above $100,000 income ($200,000 joint)."
+                value={inputs.carLoanInterest}
+                onChange={(v) => updateInput('carLoanInterest', v)}
+                note="New, US-assembled vehicle only; up to $10,000"
+              />
+              <MoneyField
+                label="Cash donations to charity"
+                help="Cash gifts to qualifying charities (not donor-advised funds). From 2026 you can deduct up to $1,000 ($2,000 joint) without itemizing."
+                value={inputs.charitableDonations}
+                onChange={(v) => updateInput('charitableDonations', v)}
+                note={yearData.charitableDeduction.other > 0
+                  ? `Deduct up to ${formatMoney(inputs.filingStatus === 'marriedJointly' ? yearData.charitableDeduction.joint : yearData.charitableDeduction.other)} without itemizing`
+                  : 'Starts in 2026; no deduction without itemizing in 2025'}
+              />
+            </div>
+            {inputs.state === 'CA' && (
+              <p className="text-xs text-slate-500 mt-3">California doesn&apos;t allow these deductions; they lower federal tax only.</p>
+            )}
           </CollapsibleSection>
         </div>
       </section>

@@ -1,0 +1,1305 @@
+{
+  "description": "Shared cases for the TypeScript engine (lib/) and the Swift TaxEngine (ios/TaxEngine). Inputs not listed default to 0/false, 2026, single. Expected values are compared to the cent; a dotted key such as \"stateTax.incomeTax\" reads a nested field. Every case also checks that the bracket breakdown sums to taxBeforeCredits. rothCases check the reduced Roth IRA limit (rounded up to $10, $200 minimum).",
+  "cases": [
+    {
+      "name": "2025 single, $100k income",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 100000
+      },
+      "expected": {
+        "taxObligation": 13449,
+        "taxableIncome": 84250,
+        "marginalRate": 22
+      }
+    },
+    {
+      "name": "taxable income of $11,925.50 lands in the 12% bracket",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 27675.5
+      },
+      "expected": {
+        "taxableIncome": 11925.5,
+        "taxObligation": 1192.56
+      }
+    },
+    {
+      "name": "2026 married filing jointly, $150k, 2 children",
+      "inputs": {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "grossIncome": 150000,
+        "numChildren": 2
+      },
+      "expected": {
+        "taxObligation": 10940,
+        "dependentCredit": 4400,
+        "payrollTax": 11475,
+        "takeHomePay": 127585
+      }
+    },
+    {
+      "name": "single, $215,750, 1 child (credit phase-out)",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 215750,
+        "numChildren": 1
+      },
+      "expected": {
+        "dependentCredit": 1400
+      }
+    },
+    {
+      "name": "single, $85k, age 65+",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 85000,
+        "isAge65Plus": true
+      },
+      "expected": {
+        "taxObligation": 8521
+      }
+    },
+    {
+      "name": "2026 married filing jointly, $100k, both 65+",
+      "inputs": {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "grossIncome": 100000,
+        "isAge65Plus": true,
+        "isSpouseAge65Plus": true
+      },
+      "expected": {
+        "taxObligation": 5804,
+        "seniorDeduction": 12000
+      }
+    },
+    {
+      "name": "single, $92,500, $3,000 student loan interest (phased out)",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 92500,
+        "studentLoanInterest": 3000
+      },
+      "expected": {
+        "taxObligation": 11524
+      }
+    },
+    {
+      "name": "married filing jointly, $150k, $10k spouse 401(k)",
+      "inputs": {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "grossIncome": 150000,
+        "spouseRetirementContributions": 10000
+      },
+      "expected": {
+        "taxObligation": 13698
+      }
+    },
+    {
+      "name": "$100k, $7,000 IRA marked non-deductible",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 100000,
+        "iraContributions": 7000,
+        "isNonDeductibleIRA": true
+      },
+      "expected": {
+        "taxObligation": 13449
+      }
+    },
+    {
+      "name": "$100k, $7,000 deductible IRA",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 100000,
+        "iraContributions": 7000
+      },
+      "expected": {
+        "taxObligation": 11909
+      }
+    },
+    {
+      "name": "top bracket, head of household 2026, $900k",
+      "inputs": {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 900000
+      },
+      "expected": {
+        "marginalRate": 37
+      }
+    },
+    {
+      "name": "2026 single, $100k income",
+      "inputs": {
+        "grossIncome": 100000
+      },
+      "expected": {
+        "taxObligation": 13170,
+        "taxableIncome": 83900,
+        "standardDeduction": 16100,
+        "socialSecurityTax": 6200,
+        "medicareTax": 1450,
+        "payrollTax": 7650,
+        "takeHomePay": 79180
+      }
+    },
+    {
+      "name": "2026 single, $85k, age 65+ (senior deduction phases down)",
+      "inputs": {
+        "grossIncome": 85000,
+        "isAge65Plus": true
+      },
+      "expected": {
+        "standardDeduction": 18150,
+        "seniorDeduction": 5400,
+        "taxableIncome": 61450,
+        "taxObligation": 8231
+      }
+    },
+    {
+      "name": "2026 head of household, $60k, 1 child, 1 other dependent",
+      "inputs": {
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 60000,
+        "numChildren": 1,
+        "numOtherDependents": 1
+      },
+      "expected": {
+        "taxableIncome": 35850,
+        "taxBeforeCredits": 3948,
+        "dependentCredit": 2700,
+        "taxObligation": 1248
+      }
+    },
+    {
+      "name": "2026 single, covered by workplace plan, $86k, $7,500 IRA (partial deduction)",
+      "inputs": {
+        "grossIncome": 86000,
+        "iraContributions": 7500,
+        "isCoveredByEmployerPlan": true
+      },
+      "expected": {
+        "iraDeduction": 3750,
+        "agi": 82250
+      }
+    },
+    {
+      "name": "payroll: 2026 single $250k, Social Security wage base and Additional Medicare",
+      "inputs": {
+        "grossIncome": 250000
+      },
+      "expected": {
+        "socialSecurityTax": 11439,
+        "medicareTax": 4075
+      }
+    },
+    {
+      "name": "payroll: 2026 joint $300k, one earner",
+      "inputs": {
+        "filingStatus": "marriedJointly",
+        "grossIncome": 300000
+      },
+      "expected": {
+        "socialSecurityTax": 11439,
+        "medicareTax": 4800
+      }
+    },
+    {
+      "name": "payroll: 2026 joint $300k, two $150k earners (wage base per worker)",
+      "inputs": {
+        "filingStatus": "marriedJointly",
+        "grossIncome": 300000,
+        "spouseWages": 150000
+      },
+      "expected": {
+        "socialSecurityTax": 18600,
+        "medicareTax": 4800
+      }
+    },
+    {
+      "name": "payroll: health premiums are exempt, 401(k) is not",
+      "inputs": {
+        "grossIncome": 60000,
+        "healthInsurancePremiums": 3000,
+        "retirementContributions": 5000
+      },
+      "expected": {
+        "payrollWages": 57000,
+        "payrollTax": 4360.5
+      }
+    },
+    {
+      "name": "refundable CTC: 2026 head of household $30k, 2 children",
+      "inputs": {
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 30000,
+        "numChildren": 2
+      },
+      "expected": {
+        "taxBeforeCredits": 585,
+        "dependentCredit": 585,
+        "taxObligation": 0,
+        "refundableChildCredit": 3400,
+        "netIncomeTax": -3400,
+        "payrollTax": 2295,
+        "takeHomePay": 31105
+      }
+    },
+    {
+      "name": "refundable CTC: limited to 15% of earned income over $2,500",
+      "inputs": {
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 12000,
+        "numChildren": 1
+      },
+      "expected": {
+        "taxObligation": 0,
+        "refundableChildCredit": 1425,
+        "takeHomePay": 12507
+      }
+    },
+    {
+      "name": "refundable CTC: 401(k) lowers earned income but not payroll tax",
+      "inputs": {
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 12000,
+        "numChildren": 1,
+        "retirementContributions": 2000
+      },
+      "expected": {
+        "refundableChildCredit": 1125,
+        "payrollTax": 918,
+        "takeHomePay": 10207
+      }
+    },
+    {
+      "name": "refundable CTC: other dependents don't count toward the refundable part",
+      "inputs": {
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 20000,
+        "numOtherDependents": 2
+      },
+      "expected": {
+        "taxObligation": 0,
+        "refundableChildCredit": 0
+      }
+    },
+    {
+      "name": "2026 single, $60k with $10k tips: tips deduction",
+      "inputs": {
+        "grossIncome": 60000,
+        "qualifiedTips": 10000
+      },
+      "expected": {
+        "tipsDeduction": 10000,
+        "taxableIncome": 33900,
+        "taxObligation": 3820
+      }
+    },
+    {
+      "name": "2026 joint, $320,500: tips capped at $25k, less $100 per full $1,000 over $300k",
+      "inputs": {
+        "filingStatus": "marriedJointly",
+        "grossIncome": 320500,
+        "qualifiedTips": 30000
+      },
+      "expected": {
+        "tipsDeduction": 23000,
+        "taxableIncome": 265300
+      }
+    },
+    {
+      "name": "2026 single overtime premium capped at $12,500",
+      "inputs": {
+        "grossIncome": 80000,
+        "qualifiedOvertime": 15000
+      },
+      "expected": {
+        "overtimeDeduction": 12500,
+        "taxObligation": 6020
+      }
+    },
+    {
+      "name": "2026 single $155,500: overtime reduced $100 per full $1,000 over $150k (5.5 \u2192 5)",
+      "inputs": {
+        "grossIncome": 155500,
+        "qualifiedOvertime": 12500
+      },
+      "expected": {
+        "overtimeDeduction": 12000
+      }
+    },
+    {
+      "name": "2026 single $100,500: car loan interest reduced $200 per $1,000 or part over $100k",
+      "inputs": {
+        "grossIncome": 100500,
+        "carLoanInterest": 8000
+      },
+      "expected": {
+        "carLoanInterestDeduction": 7800,
+        "taxObligation": 11564
+      }
+    },
+    {
+      "name": "married filing separately: no tips or overtime deduction, car loan interest allowed",
+      "inputs": {
+        "filingStatus": "marriedSeparately",
+        "grossIncome": 100000,
+        "qualifiedTips": 5000,
+        "qualifiedOvertime": 5000,
+        "carLoanInterest": 5000
+      },
+      "expected": {
+        "tipsDeduction": 0,
+        "overtimeDeduction": 0,
+        "carLoanInterestDeduction": 5000,
+        "taxableIncome": 78900
+      }
+    },
+    {
+      "name": "2026 joint charitable deduction without itemizing capped at $2,000",
+      "inputs": {
+        "filingStatus": "marriedJointly",
+        "grossIncome": 120000,
+        "charitableDonations": 3000
+      },
+      "expected": {
+        "charitableDeduction": 2000,
+        "taxObligation": 9800
+      }
+    },
+    {
+      "name": "2025 has no charitable deduction for non-itemizers",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 60000,
+        "charitableDonations": 3000
+      },
+      "expected": {
+        "charitableDeduction": 0,
+        "taxableIncome": 44250
+      }
+    },
+    {
+      "name": "2026 California single, $100k",
+      "inputs": {
+        "grossIncome": 100000,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.taxableIncome": 94100,
+        "stateTax.taxBeforeCredits": 5069,
+        "stateTax.exemptionCredits": 158,
+        "stateIncomeTax": 4911,
+        "statePayrollTax": 1300,
+        "taxObligation": 13170,
+        "takeHomePay": 72969,
+        "potentialSavings401k.taxSavings": 313
+      }
+    },
+    {
+      "name": "2026 California joint, $150k, 2 children",
+      "inputs": {
+        "filingStatus": "marriedJointly",
+        "grossIncome": 150000,
+        "numChildren": 2,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.taxBeforeCredits": 5646.24,
+        "stateTax.exemptionCredits": 1298,
+        "stateIncomeTax": 4348.24,
+        "statePayrollTax": 1950,
+        "takeHomePay": 121286.76
+      }
+    },
+    {
+      "name": "2026 California head of household, $40k, 1 child: credits wipe out the tax",
+      "inputs": {
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 40000,
+        "numChildren": 1,
+        "state": "CA",
+        "isRenter": true
+      },
+      "expected": {
+        "stateTax.taxBeforeCredits": 335,
+        "stateIncomeTax": 0,
+        "statePayrollTax": 520
+      }
+    },
+    {
+      "name": "2026 California single renter, $45k: renter's credit",
+      "inputs": {
+        "grossIncome": 45000,
+        "state": "CA",
+        "isRenter": true
+      },
+      "expected": {
+        "stateTax.taxBeforeCredits": 906,
+        "stateTax.rentersCredit": 60,
+        "stateIncomeTax": 688
+      }
+    },
+    {
+      "name": "2026 California adds back HSA and educator expenses",
+      "inputs": {
+        "grossIncome": 80000,
+        "hsaCoverageType": "selfOnly",
+        "hsaContributions": 4000,
+        "educatorExpenses": 300,
+        "state": "CA"
+      },
+      "expected": {
+        "agi": 75700,
+        "stateTax.stateAgi": 80000,
+        "stateIncomeTax": 3065,
+        "statePayrollTax": 988
+      }
+    },
+    {
+      "name": "2026 California taxes tips the federal return deducts",
+      "inputs": {
+        "grossIncome": 60000,
+        "qualifiedTips": 10000,
+        "state": "CA"
+      },
+      "expected": {
+        "taxableIncome": 33900,
+        "stateTax.taxableIncome": 54100,
+        "stateIncomeTax": 1573
+      }
+    },
+    {
+      "name": "2026 California single $300k: exemption credit phase-out",
+      "inputs": {
+        "grossIncome": 300000,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.exemptionCredits": 62,
+        "stateIncomeTax": 23606.86
+      }
+    },
+    {
+      "name": "2026 California $1.2M: 1% behavioral health tax over $1M",
+      "inputs": {
+        "grossIncome": 1200000,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.surtax": 1941,
+        "stateTax.exemptionCredits": 0,
+        "stateIncomeTax": 129000.37,
+        "stateTax.marginalRate": 13.3
+      }
+    },
+    {
+      "name": "2025 California single, $75k, 65+",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 75000,
+        "isAge65Plus": true,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.taxBeforeCredits": 2928,
+        "stateTax.exemptionCredits": 306,
+        "stateIncomeTax": 2622,
+        "statePayrollTax": 900
+      }
+    },
+    {
+      "name": "2025 California single, $300k: exemption credit worksheet ($153 \u2212 $6 \u00d7 20 steps)",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 300000,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.exemptionCredits": 33
+      }
+    },
+    {
+      "name": "2025 California married filing separately, $260k: $1,250 steps ($153 \u2212 $6 \u00d7 7)",
+      "inputs": {
+        "year": 2025,
+        "filingStatus": "marriedSeparately",
+        "grossIncome": 260000,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.exemptionCredits": 111
+      }
+    }
+  ],
+  "rothCases": [
+    {
+      "name": "2026 single below phase-out",
+      "magi": 150000,
+      "filingStatus": "single",
+      "year": 2026,
+      "isEligibleForCatchUp": false,
+      "expectedAllowed": 7500,
+      "expectedEligible": true
+    },
+    {
+      "name": "2026 single mid phase-out, rounded up to $10",
+      "magi": 160001,
+      "filingStatus": "single",
+      "year": 2026,
+      "isEligibleForCatchUp": false,
+      "expectedAllowed": 4000,
+      "expectedEligible": true
+    },
+    {
+      "name": "2026 single near top of phase-out, $200 minimum",
+      "magi": 167900,
+      "filingStatus": "single",
+      "year": 2026,
+      "isEligibleForCatchUp": false,
+      "expectedAllowed": 200,
+      "expectedEligible": true
+    },
+    {
+      "name": "2026 joint above phase-out",
+      "magi": 252000,
+      "filingStatus": "marriedJointly",
+      "year": 2026,
+      "isEligibleForCatchUp": false,
+      "expectedAllowed": 0,
+      "expectedEligible": false
+    },
+    {
+      "name": "2025 joint mid phase-out with catch-up",
+      "magi": 241000,
+      "filingStatus": "marriedJointly",
+      "year": 2025,
+      "isEligibleForCatchUp": true,
+      "expectedAllowed": 4000,
+      "expectedEligible": true
+    }
+  ],
+  "caTaxTable2025": {
+    "description": "Rows copied from FTB's 2025 California Tax Table (Form 540 booklet): [from, to, single/MFS, joint, head of household]. Any taxable income in a row must give that row's tax.",
+    "rows": [
+      [
+        1,
+        50,
+        0,
+        0,
+        0
+      ],
+      [
+        51,
+        150,
+        1,
+        1,
+        1
+      ],
+      [
+        151,
+        250,
+        2,
+        2,
+        2
+      ],
+      [
+        851,
+        950,
+        9,
+        9,
+        9
+      ],
+      [
+        2851,
+        2950,
+        29,
+        29,
+        29
+      ],
+      [
+        4551,
+        4650,
+        46,
+        46,
+        46
+      ],
+      [
+        5351,
+        5450,
+        54,
+        54,
+        54
+      ],
+      [
+        5951,
+        6050,
+        60,
+        60,
+        60
+      ],
+      [
+        7151,
+        7250,
+        72,
+        72,
+        72
+      ],
+      [
+        8451,
+        8550,
+        85,
+        85,
+        85
+      ],
+      [
+        8951,
+        9050,
+        90,
+        90,
+        90
+      ],
+      [
+        11451,
+        11550,
+        119,
+        115,
+        115
+      ],
+      [
+        11551,
+        11650,
+        121,
+        116,
+        116
+      ],
+      [
+        15551,
+        15650,
+        201,
+        156,
+        156
+      ],
+      [
+        23251,
+        23350,
+        355,
+        244,
+        244
+      ],
+      [
+        25251,
+        25350,
+        395,
+        284,
+        284
+      ],
+      [
+        25351,
+        25450,
+        397,
+        286,
+        286
+      ],
+      [
+        25951,
+        26050,
+        409,
+        298,
+        298
+      ],
+      [
+        26451,
+        26550,
+        424,
+        308,
+        308
+      ],
+      [
+        26751,
+        26850,
+        436,
+        314,
+        314
+      ],
+      [
+        26851,
+        26950,
+        440,
+        316,
+        316
+      ],
+      [
+        32151,
+        32250,
+        652,
+        422,
+        422
+      ],
+      [
+        32451,
+        32550,
+        664,
+        428,
+        428
+      ],
+      [
+        37951,
+        38050,
+        884,
+        538,
+        538
+      ],
+      [
+        38851,
+        38950,
+        920,
+        556,
+        556
+      ],
+      [
+        39751,
+        39850,
+        956,
+        574,
+        574
+      ],
+      [
+        40751,
+        40850,
+        996,
+        594,
+        594
+      ],
+      [
+        40851,
+        40950,
+        1000,
+        596,
+        596
+      ],
+      [
+        46251,
+        46350,
+        1313,
+        704,
+        704
+      ],
+      [
+        46351,
+        46450,
+        1319,
+        706,
+        706
+      ],
+      [
+        47851,
+        47950,
+        1409,
+        736,
+        736
+      ],
+      [
+        49551,
+        49650,
+        1511,
+        770,
+        770
+      ],
+      [
+        53051,
+        53150,
+        1721,
+        852,
+        852
+      ],
+      [
+        53551,
+        53650,
+        1751,
+        872,
+        872
+      ],
+      [
+        54051,
+        54150,
+        1781,
+        892,
+        892
+      ],
+      [
+        54251,
+        54350,
+        1793,
+        900,
+        900
+      ],
+      [
+        56851,
+        56950,
+        1949,
+        1004,
+        1004
+      ],
+      [
+        58251,
+        58350,
+        2048,
+        1060,
+        1060
+      ],
+      [
+        59451,
+        59550,
+        2144,
+        1108,
+        1108
+      ],
+      [
+        59551,
+        59650,
+        2152,
+        1112,
+        1112
+      ],
+      [
+        61651,
+        61750,
+        2320,
+        1196,
+        1196
+      ],
+      [
+        62651,
+        62750,
+        2400,
+        1236,
+        1236
+      ],
+      [
+        63651,
+        63750,
+        2480,
+        1276,
+        1276
+      ],
+      [
+        65351,
+        65450,
+        2616,
+        1344,
+        1344
+      ],
+      [
+        65851,
+        65950,
+        2656,
+        1364,
+        1364
+      ],
+      [
+        67551,
+        67650,
+        2792,
+        1432,
+        1432
+      ],
+      [
+        68351,
+        68450,
+        2856,
+        1464,
+        1477
+      ],
+      [
+        69951,
+        70050,
+        2984,
+        1528,
+        1573
+      ],
+      [
+        71551,
+        71650,
+        3112,
+        1592,
+        1669
+      ],
+      [
+        73251,
+        73350,
+        3256,
+        1660,
+        1771
+      ],
+      [
+        85151,
+        85250,
+        4362,
+        2182,
+        2513
+      ],
+      [
+        86251,
+        86350,
+        4465,
+        2248,
+        2601
+      ],
+      [
+        90251,
+        90350,
+        4837,
+        2488,
+        2921
+      ],
+      [
+        93351,
+        93450,
+        5125,
+        2674,
+        3169
+      ],
+      [
+        93751,
+        93850,
+        5162,
+        2698,
+        3201
+      ],
+      [
+        94851,
+        94950,
+        5264,
+        2764,
+        3289
+      ],
+      [
+        97451,
+        97550,
+        5506,
+        2920,
+        3497
+      ],
+      [
+        99651,
+        99750,
+        5711,
+        3052,
+        3682
+      ],
+      [
+        99951,
+        100000,
+        5736,
+        3068,
+        3708
+      ]
+    ]
+  },
+  "caScheduleCases": {
+    "description": "Tax at each bracket start in FTB's published 2025 and 2026 rate schedules (the 'Enter on Form 540, line 31' base amounts), plus the 2025 booklet's worked example.",
+    "cases": [
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 11079,
+        "expectedTax": 110.79
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 26264,
+        "expectedTax": 414.49
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 41452,
+        "expectedTax": 1022.01
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 57542,
+        "expectedTax": 1987.41
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 72724,
+        "expectedTax": 3201.97
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 371479,
+        "expectedTax": 30986.19
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 445771,
+        "expectedTax": 38638.27
+      },
+      {
+        "year": 2025,
+        "filingStatus": "single",
+        "taxableIncome": 742953,
+        "expectedTax": 72219.84
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 22158,
+        "expectedTax": 221.58
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 52528,
+        "expectedTax": 828.98
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 82904,
+        "expectedTax": 2044.02
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 115084,
+        "expectedTax": 3974.82
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 145448,
+        "expectedTax": 6403.94
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 742958,
+        "expectedTax": 61972.37
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 891542,
+        "expectedTax": 77276.52
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 1485906,
+        "expectedTax": 144439.65
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 22173,
+        "expectedTax": 221.73
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 52530,
+        "expectedTax": 828.87
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 67716,
+        "expectedTax": 1436.31
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 83805,
+        "expectedTax": 2401.65
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 98990,
+        "expectedTax": 3616.45
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 505208,
+        "expectedTax": 41394.72
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 606251,
+        "expectedTax": 51802.15
+      },
+      {
+        "year": 2025,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 1010417,
+        "expectedTax": 97472.91
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 11456,
+        "expectedTax": 114.56
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 27157,
+        "expectedTax": 428.58
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 42861,
+        "expectedTax": 1056.74
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 59498,
+        "expectedTax": 2054.96
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 75197,
+        "expectedTax": 3310.88
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 384109,
+        "expectedTax": 32039.7
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 460927,
+        "expectedTax": 39951.95
+      },
+      {
+        "year": 2026,
+        "filingStatus": "single",
+        "taxableIncome": 768213,
+        "expectedTax": 74675.27
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 22912,
+        "expectedTax": 229.12
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 54314,
+        "expectedTax": 857.16
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 85722,
+        "expectedTax": 2113.48
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 118996,
+        "expectedTax": 4109.92
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 150394,
+        "expectedTax": 6621.76
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 768218,
+        "expectedTax": 64079.39
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 921854,
+        "expectedTax": 79903.9
+      },
+      {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 1536426,
+        "expectedTax": 149350.54
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 22927,
+        "expectedTax": 229.27
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 54316,
+        "expectedTax": 857.05
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 70018,
+        "expectedTax": 1485.13
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 86654,
+        "expectedTax": 2483.29
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 102356,
+        "expectedTax": 3739.45
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 522385,
+        "expectedTax": 42802.15
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 626864,
+        "expectedTax": 53563.49
+      },
+      {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "taxableIncome": 1044771,
+        "expectedTax": 100786.98
+      },
+      {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "taxableIncome": 125000,
+        "expectedTax": 4768.1,
+        "note": "FTB booklet example (Chris and Pat Smith)"
+      }
+    ]
+  }
+}

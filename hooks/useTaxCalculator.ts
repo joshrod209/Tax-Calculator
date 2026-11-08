@@ -31,6 +31,7 @@ const defaultInputs: TaxCalculatorInputs = {
     year: getCurrentTaxYear(),
     filingStatus: '',
     grossIncome: 0,
+    spouseWages: 0,
     isAge50Plus: false,
     isAge65Plus: false,
     isSpouseAge50Plus: false,
@@ -51,6 +52,12 @@ const defaultInputs: TaxCalculatorInputs = {
     educatorExpenses: 0,
     isCoveredByEmployerPlan: false,
     isSpouseCoveredByEmployerPlan: false,
+    qualifiedTips: 0,
+    qualifiedOvertime: 0,
+    carLoanInterest: 0,
+    charitableDonations: 0,
+    state: 'none',
+    isRenter: false,
 };
 
 export function useTaxCalculator() {

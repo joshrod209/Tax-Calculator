@@ -12,7 +12,7 @@ export default function Header({ year }: HeaderProps) {
       </div>
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">{year} Tax Forecaster</h1>
-        <p className="text-slate-500 text-sm">Real-time federal estimates based on {year} IRS brackets</p>
+        <p className="text-slate-500 text-sm">Real-time federal and California estimates based on {year} IRS and FTB figures</p>
       </div>
     </header>
   )
