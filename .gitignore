@@ -11,6 +11,7 @@ build
 tsconfig.tsbuildinfo
 .test-build/
 ios/build/
+ios/build-device/
 ios/TaxEngine/.build/
 ios/TaxEngine/.swiftpm/
 xcuserdata/
