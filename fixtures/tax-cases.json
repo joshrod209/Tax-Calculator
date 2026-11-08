@@ -1,60 +1,232 @@
 {
-  "description": "Shared cases for the TypeScript engine (lib/) and the Swift TaxEngine (ios/TaxEngine). Inputs not listed default to 0/false, 2025, single. Expected values are compared to the cent. Every case also checks that the bracket breakdown sums to taxBeforeCredits.",
+  "description": "Shared cases for the TypeScript engine (lib/) and the Swift TaxEngine (ios/TaxEngine). Inputs not listed default to 0/false, 2026, single. Expected values are compared to the cent. Every case also checks that the bracket breakdown sums to taxBeforeCredits. rothCases check the reduced Roth IRA limit (rounded up to $10, $200 minimum).",
   "cases": [
     {
       "name": "2025 single, $100k income",
-      "inputs": { "grossIncome": 100000 },
-      "expected": { "taxObligation": 13449, "taxableIncome": 84250, "marginalRate": 22 }
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 100000
+      },
+      "expected": {
+        "taxObligation": 13449,
+        "taxableIncome": 84250,
+        "marginalRate": 22
+      }
     },
     {
       "name": "taxable income of $11,925.50 lands in the 12% bracket",
-      "inputs": { "grossIncome": 27675.5 },
-      "expected": { "taxableIncome": 11925.5, "taxObligation": 1192.56 }
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 27675.5
+      },
+      "expected": {
+        "taxableIncome": 11925.5,
+        "taxObligation": 1192.56
+      }
     },
     {
       "name": "2026 married filing jointly, $150k, 2 children",
-      "inputs": { "year": 2026, "filingStatus": "marriedJointly", "grossIncome": 150000, "numChildren": 2 },
-      "expected": { "taxObligation": 10940, "dependentCredit": 4400 }
+      "inputs": {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "grossIncome": 150000,
+        "numChildren": 2
+      },
+      "expected": {
+        "taxObligation": 10940,
+        "dependentCredit": 4400
+      }
     },
     {
       "name": "single, $215,750, 1 child (credit phase-out)",
-      "inputs": { "grossIncome": 215750, "numChildren": 1 },
-      "expected": { "dependentCredit": 1400 }
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 215750,
+        "numChildren": 1
+      },
+      "expected": {
+        "dependentCredit": 1400
+      }
     },
     {
       "name": "single, $85k, age 65+",
-      "inputs": { "grossIncome": 85000, "isAge65Plus": true },
-      "expected": { "taxObligation": 8521 }
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 85000,
+        "isAge65Plus": true
+      },
+      "expected": {
+        "taxObligation": 8521
+      }
     },
     {
       "name": "2026 married filing jointly, $100k, both 65+",
-      "inputs": { "year": 2026, "filingStatus": "marriedJointly", "grossIncome": 100000, "isAge65Plus": true, "isSpouseAge65Plus": true },
-      "expected": { "taxObligation": 5804, "seniorDeduction": 12000 }
+      "inputs": {
+        "year": 2026,
+        "filingStatus": "marriedJointly",
+        "grossIncome": 100000,
+        "isAge65Plus": true,
+        "isSpouseAge65Plus": true
+      },
+      "expected": {
+        "taxObligation": 5804,
+        "seniorDeduction": 12000
+      }
     },
     {
       "name": "single, $92,500, $3,000 student loan interest (phased out)",
-      "inputs": { "grossIncome": 92500, "studentLoanInterest": 3000 },
-      "expected": { "taxObligation": 11524 }
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 92500,
+        "studentLoanInterest": 3000
+      },
+      "expected": {
+        "taxObligation": 11524
+      }
     },
     {
       "name": "married filing jointly, $150k, $10k spouse 401(k)",
-      "inputs": { "filingStatus": "marriedJointly", "grossIncome": 150000, "spouseRetirementContributions": 10000 },
-      "expected": { "taxObligation": 13698 }
+      "inputs": {
+        "year": 2025,
+        "filingStatus": "marriedJointly",
+        "grossIncome": 150000,
+        "spouseRetirementContributions": 10000
+      },
+      "expected": {
+        "taxObligation": 13698
+      }
     },
     {
       "name": "$100k, $7,000 IRA marked non-deductible",
-      "inputs": { "grossIncome": 100000, "iraContributions": 7000, "isNonDeductibleIRA": true },
-      "expected": { "taxObligation": 13449 }
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 100000,
+        "iraContributions": 7000,
+        "isNonDeductibleIRA": true
+      },
+      "expected": {
+        "taxObligation": 13449
+      }
     },
     {
       "name": "$100k, $7,000 deductible IRA",
-      "inputs": { "grossIncome": 100000, "iraContributions": 7000 },
-      "expected": { "taxObligation": 11909 }
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 100000,
+        "iraContributions": 7000
+      },
+      "expected": {
+        "taxObligation": 11909
+      }
     },
     {
       "name": "top bracket, head of household 2026, $900k",
-      "inputs": { "year": 2026, "filingStatus": "headOfHousehold", "grossIncome": 900000 },
-      "expected": { "marginalRate": 37 }
+      "inputs": {
+        "year": 2026,
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 900000
+      },
+      "expected": {
+        "marginalRate": 37
+      }
+    },
+    {
+      "name": "2026 single, $100k income",
+      "inputs": {
+        "grossIncome": 100000
+      },
+      "expected": {
+        "taxObligation": 13170,
+        "taxableIncome": 83900,
+        "standardDeduction": 16100
+      }
+    },
+    {
+      "name": "2026 single, $85k, age 65+ (senior deduction phases down)",
+      "inputs": {
+        "grossIncome": 85000,
+        "isAge65Plus": true
+      },
+      "expected": {
+        "standardDeduction": 18150,
+        "seniorDeduction": 5400,
+        "taxableIncome": 61450,
+        "taxObligation": 8231
+      }
+    },
+    {
+      "name": "2026 head of household, $60k, 1 child, 1 other dependent",
+      "inputs": {
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 60000,
+        "numChildren": 1,
+        "numOtherDependents": 1
+      },
+      "expected": {
+        "taxableIncome": 35850,
+        "taxBeforeCredits": 3948,
+        "dependentCredit": 2700,
+        "taxObligation": 1248
+      }
+    },
+    {
+      "name": "2026 single, covered by workplace plan, $86k, $7,500 IRA (partial deduction)",
+      "inputs": {
+        "grossIncome": 86000,
+        "iraContributions": 7500,
+        "isCoveredByEmployerPlan": true
+      },
+      "expected": {
+        "iraDeduction": 3750,
+        "agi": 82250
+      }
+    }
+  ],
+  "rothCases": [
+    {
+      "name": "2026 single below phase-out",
+      "magi": 150000,
+      "filingStatus": "single",
+      "year": 2026,
+      "isEligibleForCatchUp": false,
+      "expectedAllowed": 7500,
+      "expectedEligible": true
+    },
+    {
+      "name": "2026 single mid phase-out, rounded up to $10",
+      "magi": 160001,
+      "filingStatus": "single",
+      "year": 2026,
+      "isEligibleForCatchUp": false,
+      "expectedAllowed": 4000,
+      "expectedEligible": true
+    },
+    {
+      "name": "2026 single near top of phase-out, $200 minimum",
+      "magi": 167900,
+      "filingStatus": "single",
+      "year": 2026,
+      "isEligibleForCatchUp": false,
+      "expectedAllowed": 200,
+      "expectedEligible": true
+    },
+    {
+      "name": "2026 joint above phase-out",
+      "magi": 252000,
+      "filingStatus": "marriedJointly",
+      "year": 2026,
+      "isEligibleForCatchUp": false,
+      "expectedAllowed": 0,
+      "expectedEligible": false
+    },
+    {
+      "name": "2025 joint mid phase-out with catch-up",
+      "magi": 241000,
+      "filingStatus": "marriedJointly",
+      "year": 2025,
+      "isEligibleForCatchUp": true,
+      "expectedAllowed": 4000,
+      "expectedEligible": true
     }
   ]
 }

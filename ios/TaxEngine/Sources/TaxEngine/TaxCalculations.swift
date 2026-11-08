@@ -2,7 +2,7 @@
 import Foundation
 
 public struct TaxInputs: Codable, Sendable, Equatable {
-    public var year: TaxYear = .y2025
+    public var year: TaxYear = .y2026
     public var filingStatus: FilingStatus = .single
     public var grossIncome: Double = 0
     public var isAge50Plus = false
@@ -40,7 +40,7 @@ public struct TaxInputs: Codable, Sendable, Equatable {
              studentLoanInterest, educatorExpenses, isCoveredByEmployerPlan, isSpouseCoveredByEmployerPlan
     }
 
-    /// Any field left out keeps its default ($0 / false / 2025 single), as the shared fixtures expect.
+    /// Any field left out keeps its default ($0 / false / 2026 single), as the shared fixtures expect.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         func v<T: Decodable>(_ key: CodingKeys, _ current: T) throws -> T {

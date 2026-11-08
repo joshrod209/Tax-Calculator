@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { calculateTax, type TaxInputs } from '../lib/tax-calculations';
 import { calculateTaxBracketBreakdown } from '../lib/utils';
+import { checkRothIRAEligibility } from '../lib/ira-calculations';
+import { TAX_YEAR_DATA, type FilingStatus, type TaxYear } from '../lib/data';
 
 interface FixtureCase {
     name: string;
@@ -14,7 +16,7 @@ interface FixtureCase {
 }
 
 const defaults: TaxInputs = {
-    year: 2025,
+    year: 2026,
     filingStatus: 'single',
     grossIncome: 0,
     isAge50Plus: false,
@@ -41,7 +43,20 @@ const defaults: TaxInputs = {
 
 // Compiled output runs from .test-build/tests, so resolve from the repo root
 const fixturePath = join(process.cwd(), 'fixtures', 'tax-cases.json');
-const { cases } = JSON.parse(readFileSync(fixturePath, 'utf8')) as { cases: FixtureCase[] };
+interface RothCase {
+    name: string;
+    magi: number;
+    filingStatus: FilingStatus;
+    year: TaxYear;
+    isEligibleForCatchUp: boolean;
+    expectedAllowed: number;
+    expectedEligible: boolean;
+}
+
+const { cases, rothCases } = JSON.parse(readFileSync(fixturePath, 'utf8')) as {
+    cases: FixtureCase[];
+    rothCases: RothCase[];
+};
 
 for (const c of cases) {
     test(c.name, () => {
@@ -64,3 +79,32 @@ for (const c of cases) {
         );
     });
 }
+
+for (const c of rothCases) {
+    test(`Roth: ${c.name}`, () => {
+        const r = checkRothIRAEligibility(c.magi, c.filingStatus, c.year, c.isEligibleForCatchUp);
+        const allowed = r.isEligible ? (r.allowedContribution ?? r.maxContribution) : 0;
+        assert.equal(r.isEligible, c.expectedEligible);
+        assert.ok(Math.abs(allowed - c.expectedAllowed) < 0.005, `allowed: expected ${c.expectedAllowed}, got ${allowed}`);
+    });
+}
+
+// Each bracket's base must equal the tax on all lower brackets, and each
+// formula must agree with base + rate × (income above the previous bracket).
+test('bracket tables are internally consistent', () => {
+    for (const [year, data] of Object.entries(TAX_YEAR_DATA)) {
+        for (const [status, brackets] of Object.entries(data.brackets)) {
+            let previousMax = 0;
+            let taxBelow = 0;
+            brackets.forEach((b, i) => {
+                const where = `${year} ${status} bracket ${i}`;
+                assert.ok(Math.abs(b.base - taxBelow) < 0.001, `${where}: base ${b.base}, expected ${taxBelow}`);
+                if (i > 0) assert.equal(b.min, previousMax + 1, `${where}: min`);
+                const x = b.max === Infinity ? previousMax + 1000 : (previousMax + b.max) / 2;
+                assert.ok(Math.abs(b.formula(x) - (taxBelow + (x - previousMax) * b.rate)) < 0.001, `${where}: formula`);
+                if (b.max !== Infinity) taxBelow += (b.max - previousMax) * b.rate;
+                previousMax = b.max;
+            });
+        }
+    }
+});

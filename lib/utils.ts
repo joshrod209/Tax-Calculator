@@ -15,10 +15,10 @@ export function getTaxYearData(year: TaxYear) {
 }
 
 /**
- * Get current/default tax year (defaults to 2025)
+ * Get current/default tax year (defaults to 2026)
  */
 export function getCurrentTaxYear(): TaxYear {
-    return 2025 as TaxYear;
+    return 2026 as TaxYear;
 }
 
 /**

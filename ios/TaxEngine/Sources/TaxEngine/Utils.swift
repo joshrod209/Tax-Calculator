@@ -9,7 +9,7 @@ public func getTaxYearData(_ year: TaxYear) -> TaxYearData {
     taxYearData[year]!
 }
 
-public func getCurrentTaxYear() -> TaxYear { .y2025 }
+public func getCurrentTaxYear() -> TaxYear { .y2026 }
 
 /// Standard deduction. The additional 65+ amount applies per qualifying person;
 /// a spouse counts only on a joint return.

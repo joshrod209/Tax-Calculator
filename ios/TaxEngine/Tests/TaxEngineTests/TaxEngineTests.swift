@@ -9,7 +9,17 @@ private struct Fixture: Decodable {
         let inputs: TaxInputs
         let expected: [String: Double]
     }
+    struct RothCase: Decodable {
+        let name: String
+        let magi: Double
+        let filingStatus: FilingStatus
+        let year: TaxYear
+        let isEligibleForCatchUp: Bool
+        let expectedAllowed: Double
+        let expectedEligible: Bool
+    }
     let cases: [Case]
+    let rothCases: [RothCase]
 }
 
 final class SharedFixtureTests: XCTestCase {
@@ -48,11 +58,23 @@ final class SharedFixtureTests: XCTestCase {
             XCTAssertEqual(sum, result.taxBeforeCredits, accuracy: 0.01, "\(c.name): bracket breakdown sum")
         }
     }
+
+    func testSharedRothCases() throws {
+        let fixture = try loadFixture()
+        XCTAssertFalse(fixture.rothCases.isEmpty)
+        for c in fixture.rothCases {
+            let r = checkRothIRAEligibility(magi: c.magi, filingStatus: c.filingStatus, year: c.year, isEligibleForCatchUp: c.isEligibleForCatchUp)
+            let allowed = r.isEligible ? (r.allowedContribution ?? r.maxContribution) : 0
+            XCTAssertEqual(r.isEligible, c.expectedEligible, c.name)
+            XCTAssertEqual(allowed, c.expectedAllowed, accuracy: 0.005, c.name)
+        }
+    }
 }
 
 final class TaxEngineTests: XCTestCase {
     private func inputs(_ configure: (inout TaxInputs) -> Void) -> TaxInputs {
         var i = TaxInputs()
+        i.year = .y2025 // these unit tests use the 2025 figures; configure may override
         configure(&i)
         return i
     }
@@ -162,6 +184,25 @@ final class TaxEngineTests: XCTestCase {
         let r = calculateTax(inputs { $0.grossIncome = 100_000 })
         XCTAssertEqual(r.potentialSavings401k?.taxSavings ?? 0, 220, accuracy: 0.005)
         XCTAssertEqual(r.maxAdditional401k, 23_500)
+    }
+
+    func testDefaultsTo2026() {
+        XCTAssertEqual(TaxInputs().year, .y2026)
+        XCTAssertEqual(getCurrentTaxYear(), .y2026)
+    }
+
+    func testBracketTablesAreConsistent() {
+        for year in TaxYear.allCases {
+            for status in FilingStatus.allCases {
+                var taxBelow = 0.0
+                var previousMax = 0.0
+                for (i, b) in getTaxYearData(year).brackets[status].enumerated() {
+                    XCTAssertEqual(b.base, taxBelow, accuracy: 0.001, "\(year) \(status) bracket \(i)")
+                    if b.max.isFinite { taxBelow += (b.max - previousMax) * b.rate }
+                    previousMax = b.max
+                }
+            }
+        }
     }
 
     func testFormatting() {

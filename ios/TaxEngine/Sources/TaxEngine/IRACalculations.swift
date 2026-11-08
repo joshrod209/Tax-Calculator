@@ -119,7 +119,12 @@ public func checkRothIRAEligibility(
     let range = limitSet.phaseOutEnd - limitSet.phaseOutStart
     let over = magi - limitSet.phaseOutStart
     let percentage = Swift.max(0, 100 - (over / range * 100))
-    let allowed = Swift.max(0, maxContribution * (percentage / 100))
+    // IRS worksheet (Pub 590-A): round the reduced limit up to the next $10,
+    // and allow at least $200 while any contribution is allowed
+    var allowed = Swift.max(0, maxContribution * (percentage / 100))
+    if allowed.truncatingRemainder(dividingBy: 10) != 0 { allowed = (allowed / 10).rounded(.up) * 10 }
+    if allowed > 0 && allowed < 200 { allowed = 200 }
+    allowed = Swift.min(allowed, maxContribution)
     return RothEligibility(isEligible: true, maxContribution: maxContribution, phaseOutPercentage: percentage, allowedContribution: allowed)
 }
 
