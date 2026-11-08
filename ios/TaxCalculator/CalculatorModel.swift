@@ -91,6 +91,10 @@ final class CalculatorModel {
         i.educatorExpenses = min(i.educatorExpenses, yearData.educatorExpensesLimit)
         i.studentLoanInterest = max(0, i.studentLoanInterest)
         i.spouseWages = min(max(0, i.spouseWages), i.grossIncome)
+        // Tips and overtime are part of wages, so together they can't exceed them
+        i.qualifiedTips = min(max(0, i.qualifiedTips), i.grossIncome)
+        i.qualifiedOvertime = min(max(0, i.qualifiedOvertime), i.grossIncome - i.qualifiedTips)
+        if i.state == .none { i.isRenter = false }
         return i
     }
 

@@ -1,5 +1,5 @@
 {
-  "description": "Shared cases for the TypeScript engine (lib/) and the Swift TaxEngine (ios/TaxEngine). Inputs not listed default to 0/false, 2026, single. Expected values are compared to the cent. Every case also checks that the bracket breakdown sums to taxBeforeCredits. rothCases check the reduced Roth IRA limit (rounded up to $10, $200 minimum).",
+  "description": "Shared cases for the TypeScript engine (lib/) and the Swift TaxEngine (ios/TaxEngine). Inputs not listed default to 0/false, 2026, single. Expected values are compared to the cent; a dotted key such as \"stateTax.incomeTax\" reads a nested field. Every case also checks that the bracket breakdown sums to taxBeforeCredits. rothCases check the reduced Roth IRA limit (rounded up to $10, $200 minimum).",
   "cases": [
     {
       "name": "2025 single, $100k income",
@@ -286,6 +286,231 @@
       "expected": {
         "taxObligation": 0,
         "refundableChildCredit": 0
+      }
+    },
+    {
+      "name": "2026 single, $60k with $10k tips: tips deduction",
+      "inputs": {
+        "grossIncome": 60000,
+        "qualifiedTips": 10000
+      },
+      "expected": {
+        "tipsDeduction": 10000,
+        "taxableIncome": 33900,
+        "taxObligation": 3820
+      }
+    },
+    {
+      "name": "2026 joint, $320,500: tips capped at $25k, less $100 per full $1,000 over $300k",
+      "inputs": {
+        "filingStatus": "marriedJointly",
+        "grossIncome": 320500,
+        "qualifiedTips": 30000
+      },
+      "expected": {
+        "tipsDeduction": 23000,
+        "taxableIncome": 265300
+      }
+    },
+    {
+      "name": "2026 single overtime premium capped at $12,500",
+      "inputs": {
+        "grossIncome": 80000,
+        "qualifiedOvertime": 15000
+      },
+      "expected": {
+        "overtimeDeduction": 12500,
+        "taxObligation": 6020
+      }
+    },
+    {
+      "name": "2026 single $155,500: overtime reduced $100 per full $1,000 over $150k (5.5 \u2192 5)",
+      "inputs": {
+        "grossIncome": 155500,
+        "qualifiedOvertime": 12500
+      },
+      "expected": {
+        "overtimeDeduction": 12000
+      }
+    },
+    {
+      "name": "2026 single $100,500: car loan interest reduced $200 per $1,000 or part over $100k",
+      "inputs": {
+        "grossIncome": 100500,
+        "carLoanInterest": 8000
+      },
+      "expected": {
+        "carLoanInterestDeduction": 7800,
+        "taxObligation": 11564
+      }
+    },
+    {
+      "name": "married filing separately: no tips or overtime deduction, car loan interest allowed",
+      "inputs": {
+        "filingStatus": "marriedSeparately",
+        "grossIncome": 100000,
+        "qualifiedTips": 5000,
+        "qualifiedOvertime": 5000,
+        "carLoanInterest": 5000
+      },
+      "expected": {
+        "tipsDeduction": 0,
+        "overtimeDeduction": 0,
+        "carLoanInterestDeduction": 5000,
+        "taxableIncome": 78900
+      }
+    },
+    {
+      "name": "2026 joint charitable deduction without itemizing capped at $2,000",
+      "inputs": {
+        "filingStatus": "marriedJointly",
+        "grossIncome": 120000,
+        "charitableDonations": 3000
+      },
+      "expected": {
+        "charitableDeduction": 2000,
+        "taxObligation": 9800
+      }
+    },
+    {
+      "name": "2025 has no charitable deduction for non-itemizers",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 60000,
+        "charitableDonations": 3000
+      },
+      "expected": {
+        "charitableDeduction": 0,
+        "taxableIncome": 44250
+      }
+    },
+    {
+      "name": "2026 California single, $100k",
+      "inputs": {
+        "grossIncome": 100000,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.taxableIncome": 94100,
+        "stateTax.taxBeforeCredits": 5068.86,
+        "stateTax.exemptionCredits": 158,
+        "stateIncomeTax": 4910.86,
+        "statePayrollTax": 1300,
+        "taxObligation": 13170,
+        "takeHomePay": 72969.14,
+        "potentialSavings401k.taxSavings": 313
+      }
+    },
+    {
+      "name": "2026 California joint, $150k, 2 children",
+      "inputs": {
+        "filingStatus": "marriedJointly",
+        "grossIncome": 150000,
+        "numChildren": 2,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.taxBeforeCredits": 5646.24,
+        "stateTax.exemptionCredits": 1298,
+        "stateIncomeTax": 4348.24,
+        "statePayrollTax": 1950,
+        "takeHomePay": 121286.76
+      }
+    },
+    {
+      "name": "2026 California head of household, $40k, 1 child: credits wipe out the tax",
+      "inputs": {
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 40000,
+        "numChildren": 1,
+        "state": "CA",
+        "isRenter": true
+      },
+      "expected": {
+        "stateTax.taxBeforeCredits": 334.73,
+        "stateIncomeTax": 0,
+        "statePayrollTax": 520
+      }
+    },
+    {
+      "name": "2026 California single renter, $45k: renter's credit",
+      "inputs": {
+        "grossIncome": 45000,
+        "state": "CA",
+        "isRenter": true
+      },
+      "expected": {
+        "stateTax.taxBeforeCredits": 906.3,
+        "stateTax.rentersCredit": 60,
+        "stateIncomeTax": 688.3
+      }
+    },
+    {
+      "name": "2026 California adds back HSA and educator expenses",
+      "inputs": {
+        "grossIncome": 80000,
+        "hsaCoverageType": "selfOnly",
+        "hsaContributions": 4000,
+        "educatorExpenses": 300,
+        "state": "CA"
+      },
+      "expected": {
+        "agi": 75700,
+        "stateTax.stateAgi": 80000,
+        "stateIncomeTax": 3065.12,
+        "statePayrollTax": 988
+      }
+    },
+    {
+      "name": "2026 California taxes tips the federal return deducts",
+      "inputs": {
+        "grossIncome": 60000,
+        "qualifiedTips": 10000,
+        "state": "CA"
+      },
+      "expected": {
+        "taxableIncome": 33900,
+        "stateTax.taxableIncome": 54100,
+        "stateIncomeTax": 1573.08
+      }
+    },
+    {
+      "name": "2026 California single $300k: exemption credit phase-out",
+      "inputs": {
+        "grossIncome": 300000,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.exemptionCredits": 62,
+        "stateIncomeTax": 23606.86
+      }
+    },
+    {
+      "name": "2026 California $1.2M: 1% behavioral health tax over $1M",
+      "inputs": {
+        "grossIncome": 1200000,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.surtax": 1941,
+        "stateTax.exemptionCredits": 0,
+        "stateIncomeTax": 129000.37,
+        "stateTax.marginalRate": 13.3
+      }
+    },
+    {
+      "name": "2025 California single, $75k, 65+",
+      "inputs": {
+        "year": 2025,
+        "grossIncome": 75000,
+        "isAge65Plus": true,
+        "state": "CA"
+      },
+      "expected": {
+        "stateTax.taxBeforeCredits": 2927.57,
+        "stateTax.exemptionCredits": 306,
+        "stateIncomeTax": 2621.57,
+        "statePayrollTax": 900
       }
     }
   ],

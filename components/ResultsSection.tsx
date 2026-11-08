@@ -63,6 +63,12 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
               <p className="text-indigo-200 text-xs mb-1">{isRefund ? 'Income Tax Refund' : 'Income Tax Owed'}</p>
               <p className="text-xl font-bold text-white">{formatMoney(Math.abs(results.netIncomeTax))}</p>
             </div>
+            {results.stateTax && (
+              <div className="transition-all duration-300 hover:bg-white/5 rounded-lg p-2 -m-2">
+                <p className="text-indigo-200 text-xs mb-1">California Income Tax</p>
+                <p className="text-xl font-bold text-white">{formatMoney(results.stateIncomeTax)}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -93,6 +99,34 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
             <div className="flex justify-between items-center py-2 border-b border-slate-100">
               <span className="text-slate-600 font-medium">Senior Deduction (65+)</span>
               <span className="text-slate-900 font-bold">-{formatMoney(results.seniorDeduction)}</span>
+            </div>
+          )}
+
+          {results.tipsDeduction > 0 && (
+            <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <span className="text-slate-600 font-medium">No Tax on Tips</span>
+              <span className="text-slate-900 font-bold">-{formatMoney(results.tipsDeduction)}</span>
+            </div>
+          )}
+
+          {results.overtimeDeduction > 0 && (
+            <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <span className="text-slate-600 font-medium">No Tax on Overtime</span>
+              <span className="text-slate-900 font-bold">-{formatMoney(results.overtimeDeduction)}</span>
+            </div>
+          )}
+
+          {results.carLoanInterestDeduction > 0 && (
+            <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <span className="text-slate-600 font-medium">Car Loan Interest</span>
+              <span className="text-slate-900 font-bold">-{formatMoney(results.carLoanInterestDeduction)}</span>
+            </div>
+          )}
+
+          {results.charitableDeduction > 0 && (
+            <div className="flex justify-between items-center py-2 border-b border-slate-100">
+              <span className="text-slate-600 font-medium">Charitable Donations</span>
+              <span className="text-slate-900 font-bold">-{formatMoney(results.charitableDeduction)}</span>
             </div>
           )}
 
@@ -142,6 +176,45 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
               <span className="text-slate-900 font-bold">{formatMoney(results.payrollTax)}</span>
             </div>
           </div>
+
+          {results.stateTax && (
+            <div className="bg-slate-50 rounded-xl p-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-slate-600 text-sm">California Taxable Income</span>
+                <span className="text-slate-900 font-bold">{formatMoney(results.stateTax.taxableIncome)}</span>
+              </div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-slate-600 text-sm">California Tax ({formatPercentage(results.stateTax.marginalRate)} bracket)</span>
+                <span className="text-slate-900 font-bold">{formatMoney(results.stateTax.taxBeforeCredits)}</span>
+              </div>
+              {results.stateTax.exemptionCredits > 0 && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-slate-600 text-sm">Exemption Credits</span>
+                  <span className="text-green-600 font-bold">-{formatMoney(results.stateTax.exemptionCredits)}</span>
+                </div>
+              )}
+              {results.stateTax.rentersCredit > 0 && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-slate-600 text-sm">Renter&apos;s Credit</span>
+                  <span className="text-green-600 font-bold">-{formatMoney(results.stateTax.rentersCredit)}</span>
+                </div>
+              )}
+              {results.stateTax.surtax > 0 && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-slate-600 text-sm">Behavioral Health Tax (1% over $1M)</span>
+                  <span className="text-slate-900 font-bold">{formatMoney(results.stateTax.surtax)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                <span className="text-slate-700 font-semibold text-sm">California Income Tax</span>
+                <span className="text-slate-900 font-bold">{formatMoney(results.stateIncomeTax)}</span>
+              </div>
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-slate-600 text-sm">CA SDI ({formatPercentage(results.statePayrollTax / Math.max(1, results.payrollWages) * 100)})</span>
+                <span className="text-slate-900 font-bold">{formatMoney(results.statePayrollTax)}</span>
+              </div>
+            </div>
+          )}
 
           {/* Tax Bracket Breakdown - Expandable */}
           {bracketBreakdown.length > 0 && (

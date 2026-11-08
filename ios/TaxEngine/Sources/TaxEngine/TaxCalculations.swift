@@ -32,6 +32,17 @@ public struct TaxInputs: Codable, Sendable, Equatable {
     public var educatorExpenses: Double = 0
     public var isCoveredByEmployerPlan = false
     public var isSpouseCoveredByEmployerPlan = false
+    /// Tips from a tipped occupation, already included in grossIncome
+    public var qualifiedTips: Double = 0
+    /// The extra "half" of time-and-a-half overtime pay, already included in grossIncome
+    public var qualifiedOvertime: Double = 0
+    /// Interest on a loan for a new, US-assembled personal vehicle taken out after 2024
+    public var carLoanInterest: Double = 0
+    /// Cash gifts to charity (deductible without itemizing from 2026)
+    public var charitableDonations: Double = 0
+    public var state: StateCode = .none
+    /// Rents their home in the state (California renter's credit)
+    public var isRenter = false
 
     public init() {}
 
@@ -40,7 +51,8 @@ public struct TaxInputs: Codable, Sendable, Equatable {
              numChildren, numOtherDependents, retirementContributions, spouseRetirementContributions,
              iraContributions, spouseIraContributions, isNonDeductibleIRA, isSpouseNonDeductibleIRA,
              hsaCoverageType, hsaContributions, healthInsurancePremiums, fsaContributions,
-             studentLoanInterest, educatorExpenses, isCoveredByEmployerPlan, isSpouseCoveredByEmployerPlan
+             studentLoanInterest, educatorExpenses, isCoveredByEmployerPlan, isSpouseCoveredByEmployerPlan,
+             qualifiedTips, qualifiedOvertime, carLoanInterest, charitableDonations, state, isRenter
     }
 
     /// Any field left out keeps its default ($0 / false / 2026 single), as the shared fixtures expect.
@@ -73,6 +85,12 @@ public struct TaxInputs: Codable, Sendable, Equatable {
         educatorExpenses = try v(.educatorExpenses, educatorExpenses)
         isCoveredByEmployerPlan = try v(.isCoveredByEmployerPlan, isCoveredByEmployerPlan)
         isSpouseCoveredByEmployerPlan = try v(.isSpouseCoveredByEmployerPlan, isSpouseCoveredByEmployerPlan)
+        qualifiedTips = try v(.qualifiedTips, qualifiedTips)
+        qualifiedOvertime = try v(.qualifiedOvertime, qualifiedOvertime)
+        carLoanInterest = try v(.carLoanInterest, carLoanInterest)
+        charitableDonations = try v(.charitableDonations, charitableDonations)
+        state = try v(.state, state)
+        isRenter = try v(.isRenter, isRenter)
     }
 
     var isCatchUpEligible: Bool { isAge50Plus || isAge65Plus }
@@ -99,6 +117,10 @@ struct TaxCore {
     var studentLoanDeduction: Double
     var standardDeduction: Double
     var seniorDeduction: Double
+    var tipsDeduction: Double
+    var overtimeDeduction: Double
+    var carLoanInterestDeduction: Double
+    var charitableDeduction: Double
     var taxableIncome: Double
     var taxBeforeCredits: Double
     var dependentCredit: Double
@@ -119,6 +141,10 @@ public struct TaxCalculationResult: Codable, Sendable, Equatable {
     public let studentLoanDeduction: Double
     public let standardDeduction: Double
     public let seniorDeduction: Double
+    public let tipsDeduction: Double
+    public let overtimeDeduction: Double
+    public let carLoanInterestDeduction: Double
+    public let charitableDeduction: Double
     public let taxableIncome: Double
     public let taxBeforeCredits: Double
     /// Non-refundable Child Tax Credit + Credit for Other Dependents actually used
@@ -153,7 +179,12 @@ public struct TaxCalculationResult: Codable, Sendable, Equatable {
     /// Medicare including the 0.9% Additional Medicare Tax
     public let medicareTax: Double
     public let payrollTax: Double
-    /// Gross income − net income tax − payroll tax − money set aside (retirement, IRA, HSA, premiums, FSA)
+    /// State income tax details, or nil when no state is selected
+    public let stateTax: StateTaxResult?
+    public let stateIncomeTax: Double
+    /// State payroll tax withheld from wages (California SDI)
+    public let statePayrollTax: Double
+    /// Gross income − federal and state income tax − payroll taxes − money set aside (retirement, IRA, HSA, premiums, FSA)
     public let takeHomePay: Double
     public let bracketInfo: BracketInfo
     public let year: TaxYear
@@ -247,7 +278,28 @@ func computeTax(_ inputs: TaxInputs) -> TaxCore {
         seniorDeduction = qualifying * perPerson
     }
 
-    let taxableIncome = max(0, agi - standardDeduction - seniorDeduction)
+    // Schedule 1-A deductions for tips, overtime and car loan interest; MAGI here is AGI
+    func overBy(_ threshold: TaxYearData.JointOther<Double>) -> Double { max(0, agi - (isJoint ? threshold.joint : threshold.other)) / 1000 }
+    func cap(_ amount: Double, _ d: TaxYearData.PhasedDeduction) -> Double {
+        min(max(0, amount), isJoint ? d.max.joint : d.max.other)
+    }
+    var tipsDeduction = 0.0
+    var overtimeDeduction = 0.0
+    if status != .marriedSeparately {
+        let tips = data.tipsDeduction
+        tipsDeduction = max(0, cap(inputs.qualifiedTips, tips) - tips.reductionPer1000 * overBy(tips.threshold).rounded(.down))
+        let ot = data.overtimeDeduction
+        overtimeDeduction = max(0, cap(inputs.qualifiedOvertime, ot) - ot.reductionPer1000 * overBy(ot.threshold).rounded(.down))
+    }
+    let car = data.carLoanInterestDeduction
+    let carLoanInterestDeduction = max(0, cap(inputs.carLoanInterest, car) - car.reductionPer1000 * overBy(car.threshold).rounded(.up))
+    let charitableDeduction = min(
+        max(0, inputs.charitableDonations),
+        isJoint ? data.charitableDeduction.joint : data.charitableDeduction.other
+    )
+
+    let taxableIncome = max(0, agi - standardDeduction - seniorDeduction - tipsDeduction -
+        overtimeDeduction - carLoanInterestDeduction - charitableDeduction)
     let bracket = findTaxBracket(taxableIncome: taxableIncome, filingStatus: status, year: year)
     let taxBeforeCredits = max(0, bracket.tax(on: taxableIncome))
 
@@ -283,6 +335,10 @@ func computeTax(_ inputs: TaxInputs) -> TaxCore {
         studentLoanDeduction: studentLoanDeduction,
         standardDeduction: standardDeduction,
         seniorDeduction: seniorDeduction,
+        tipsDeduction: tipsDeduction,
+        overtimeDeduction: overtimeDeduction,
+        carLoanInterestDeduction: carLoanInterestDeduction,
+        charitableDeduction: charitableDeduction,
         taxableIncome: taxableIncome,
         taxBeforeCredits: taxBeforeCredits,
         dependentCredit: dependentCredit,
@@ -323,8 +379,14 @@ public func calculatePayrollTax(_ inputs: TaxInputs) -> PayrollTax {
                       medicareTax: medicareTax, payrollTax: socialSecurityTax + medicareTax)
 }
 
+/// Federal plus state income tax for a set of inputs
+private func totalIncomeTax(_ inputs: TaxInputs, _ core: TaxCore) -> Double {
+    let state = calculateStateTax(inputs, federalAgi: core.agi, payrollWages: calculatePayrollTax(inputs).payrollWages)
+    return core.netIncomeTax + (state?.incomeTax ?? 0)
+}
+
 /// Tax saved by adding pre-tax contributions, found by recomputing the whole return
-/// so IRA deductibility, phase-outs and credits are all reflected.
+/// (federal and state) so IRA deductibility, phase-outs and credits are all reflected.
 public func estimateTaxSavings(
     _ inputs: TaxInputs,
     additional401k: Double,
@@ -342,7 +404,7 @@ public func estimateTaxSavings(
         additional401k: additional401k,
         additionalIRA: additionalIRA + additionalSpouseIRA,
         totalAdditional: additional401k + additionalIRA + additionalSpouseIRA,
-        taxSavings: max(0, base.netIncomeTax - changed.netIncomeTax),
+        taxSavings: max(0, totalIncomeTax(inputs, base) - totalIncomeTax(changedInputs, changed)),
         marginalRate: base.marginalRate,
         newMarginalRate: changed.marginalRate,
         currentTaxableIncome: base.taxableIncome,
@@ -350,7 +412,7 @@ public func estimateTaxSavings(
     )
 }
 
-/// Federal tax estimate for a set of inputs.
+/// Federal (and, when a state is selected, state) tax estimate for a set of inputs.
 public func calculateTax(_ inputs: TaxInputs) -> TaxCalculationResult {
     let data = getTaxYearData(inputs.year)
     let isJoint = inputs.filingStatus == .marriedJointly
@@ -382,6 +444,9 @@ public func calculateTax(_ inputs: TaxInputs) -> TaxCalculationResult {
     let spouseIraLimit = inputs.isSpouseCatchUpEligible ? data.iraLimit.max : data.iraLimit.standard
 
     let payroll = calculatePayrollTax(inputs)
+    let stateTax = calculateStateTax(inputs, federalAgi: core.agi, payrollWages: payroll.payrollWages)
+    let stateIncomeTax = stateTax?.incomeTax ?? 0
+    let statePayrollTax = stateTax?.disabilityInsurance ?? 0
 
     let maxAdditional401k = max(0, retirementLimit - inputs.retirementContributions)
     let maxAdditionalIRA = max(0, iraLimit - inputs.iraContributions)
@@ -396,6 +461,10 @@ public func calculateTax(_ inputs: TaxInputs) -> TaxCalculationResult {
         studentLoanDeduction: core.studentLoanDeduction,
         standardDeduction: core.standardDeduction,
         seniorDeduction: core.seniorDeduction,
+        tipsDeduction: core.tipsDeduction,
+        overtimeDeduction: core.overtimeDeduction,
+        carLoanInterestDeduction: core.carLoanInterestDeduction,
+        charitableDeduction: core.charitableDeduction,
         taxableIncome: core.taxableIncome,
         taxBeforeCredits: core.taxBeforeCredits,
         dependentCredit: core.dependentCredit,
@@ -420,7 +489,11 @@ public func calculateTax(_ inputs: TaxInputs) -> TaxCalculationResult {
         socialSecurityTax: payroll.socialSecurityTax,
         medicareTax: payroll.medicareTax,
         payrollTax: payroll.payrollTax,
-        takeHomePay: inputs.grossIncome - core.netIncomeTax - payroll.payrollTax - totalContributions,
+        stateTax: stateTax,
+        stateIncomeTax: stateIncomeTax,
+        statePayrollTax: statePayrollTax,
+        takeHomePay: inputs.grossIncome - core.netIncomeTax - payroll.payrollTax - totalContributions -
+            stateIncomeTax - statePayrollTax,
         bracketInfo: getBracketInfo(core.bracket),
         year: inputs.year,
         potentialSavings401k: maxAdditional401k > 0

@@ -65,8 +65,14 @@ struct SummaryCard: View {
             }
             HStack(spacing: 12) {
                 stat("Effective Tax Rate", formatPercentage(result.effectiveRate), id: "effectiveRate")
-                stat(result.netIncomeTax < 0 ? "Income Tax Refund" : "Income Tax Owed",
+                stat(result.netIncomeTax < 0 ? "Federal Refund" : "Federal Tax Owed",
                      formatMoney(abs(result.netIncomeTax)), id: "totalTax")
+            }
+            if result.stateTax != nil {
+                HStack(spacing: 12) {
+                    stat("California Income Tax", formatMoney(result.stateIncomeTax), id: "stateIncomeTax")
+                    stat("CA SDI", formatMoney(result.statePayrollTax), id: "statePayrollTax")
+                }
             }
         }
         .foregroundStyle(.white)
@@ -103,6 +109,18 @@ struct BreakdownCard: View {
                 AmountRow(label: "Standard Deduction", value: "−" + formatMoney(result.standardDeduction))
                 if result.seniorDeduction > 0 {
                     AmountRow(label: "Senior Deduction (65+)", value: "−" + formatMoney(result.seniorDeduction))
+                }
+                if result.tipsDeduction > 0 {
+                    AmountRow(label: "No Tax on Tips", value: "−" + formatMoney(result.tipsDeduction))
+                }
+                if result.overtimeDeduction > 0 {
+                    AmountRow(label: "No Tax on Overtime", value: "−" + formatMoney(result.overtimeDeduction))
+                }
+                if result.carLoanInterestDeduction > 0 {
+                    AmountRow(label: "Car Loan Interest", value: "−" + formatMoney(result.carLoanInterestDeduction))
+                }
+                if result.charitableDeduction > 0 {
+                    AmountRow(label: "Charitable Donations", value: "−" + formatMoney(result.charitableDeduction))
                 }
                 Divider()
                 AmountRow(label: "Taxable Income", value: formatMoney(result.taxableIncome), emphasized: true)
@@ -142,6 +160,28 @@ struct BreakdownCard: View {
             }
             .padding(14)
             .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            if let ca = result.stateTax {
+                VStack(spacing: 10) {
+                    AmountRow(label: "California Taxable Income", value: formatMoney(ca.taxableIncome))
+                    AmountRow(label: "California Tax (\(formatPercentage(ca.marginalRate)) bracket)", value: formatMoney(ca.taxBeforeCredits))
+                    if ca.exemptionCredits > 0 {
+                        AmountRow(label: "Exemption Credits", value: "−" + formatMoney(ca.exemptionCredits), valueColor: .green)
+                    }
+                    if ca.rentersCredit > 0 {
+                        AmountRow(label: "Renter's Credit", value: "−" + formatMoney(ca.rentersCredit), valueColor: .green)
+                    }
+                    if ca.surtax > 0 {
+                        AmountRow(label: "Behavioral Health Tax (1% over $1M)", value: formatMoney(ca.surtax))
+                    }
+                    Divider()
+                    AmountRow(label: "California Income Tax", value: formatMoney(ca.incomeTax), emphasized: true)
+                        .accessibilityIdentifier("caIncomeTax")
+                    AmountRow(label: "CA SDI (\(formatPercentage(result.payrollWages > 0 ? ca.disabilityInsurance / result.payrollWages * 100 : 0)))", value: formatMoney(ca.disabilityInsurance))
+                }
+                .padding(14)
+                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
 
             if !breakdown.isEmpty {
                 DisclosureGroup("Tax Bracket Breakdown", isExpanded: $showBrackets) {

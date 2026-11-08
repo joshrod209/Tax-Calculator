@@ -22,6 +22,14 @@ struct InputFormView: View {
                 }
                 .accessibilityIdentifier("filingStatus")
 
+                Picker("State", selection: $model.inputs.state) {
+                    ForEach(StateCode.allCases) { Text($0.displayName).tag($0) }
+                }
+                .accessibilityIdentifier("state")
+                if model.inputs.state == .CA {
+                    Toggle("I rent my home (renter's credit)", isOn: $model.inputs.isRenter)
+                }
+
                 CurrencyField(title: "Gross Annual Income", value: $model.inputs.grossIncome, accessibilityID: "grossIncome")
 
                 Toggle("Age 50 or older", isOn: $model.inputs.isAge50Plus)
@@ -159,9 +167,44 @@ struct InputFormView: View {
             }
 
             Section {
+                let separate = model.inputs.filingStatus == .marriedSeparately
+                CurrencyField(
+                    title: "Tips",
+                    value: $model.inputs.qualifiedTips,
+                    caption: separate ? "Not deductible when married filing separately" : "From a tipped job, included in income above. Up to $25,000",
+                    accessibilityID: "qualifiedTips"
+                )
+                CurrencyField(
+                    title: "Overtime premium",
+                    value: $model.inputs.qualifiedOvertime,
+                    caption: separate ? "Not deductible when married filing separately"
+                        : "Just the extra half of time-and-a-half. Up to \(formatMoney(model.isJoint ? data.overtimeDeduction.max.joint : data.overtimeDeduction.max.other))",
+                    accessibilityID: "qualifiedOvertime"
+                )
+                CurrencyField(
+                    title: "Car loan interest",
+                    value: $model.inputs.carLoanInterest,
+                    caption: "New, US-assembled vehicle, loan after 2024. Up to $10,000",
+                    accessibilityID: "carLoanInterest"
+                )
+                CurrencyField(
+                    title: "Cash donations to charity",
+                    value: $model.inputs.charitableDonations,
+                    caption: data.charitableDeduction.other > 0
+                        ? "Up to \(formatMoney(model.isJoint ? data.charitableDeduction.joint : data.charitableDeduction.other)) without itemizing"
+                        : "Starts in 2026",
+                    accessibilityID: "charitableDonations"
+                )
+            } header: {
+                Text("Tips, Overtime & Car Loan")
+            } footer: {
+                Text("Federal deductions for 2025–2028 that phase out at higher incomes\(model.inputs.state == .CA ? ". California doesn't allow them." : ".")")
+            }
+
+            Section {
                 Button("Reset All Fields", role: .destructive) { model.reset() }
             } footer: {
-                Text("Estimates federal income tax only, using IRS figures for \(String(year.rawValue)). Not tax advice.")
+                Text("Estimates federal\(model.inputs.state == .CA ? " and California" : "") income tax and payroll tax, using IRS\(model.inputs.state == .CA ? " and FTB" : "") figures for \(String(year.rawValue)). Not tax advice.")
             }
         }
         .scrollDismissesKeyboard(.interactively)

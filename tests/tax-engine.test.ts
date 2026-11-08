@@ -39,7 +39,13 @@ const defaults: TaxInputs = {
     studentLoanInterest: 0,
     educatorExpenses: 0,
     isCoveredByEmployerPlan: false,
-    isSpouseCoveredByEmployerPlan: false
+    isSpouseCoveredByEmployerPlan: false,
+    qualifiedTips: 0,
+    qualifiedOvertime: 0,
+    carLoanInterest: 0,
+    charitableDonations: 0,
+    state: 'none',
+    isRenter: false
 };
 
 // Compiled output runs from .test-build/tests, so resolve from the repo root
@@ -62,10 +68,11 @@ const { cases, rothCases } = JSON.parse(readFileSync(fixturePath, 'utf8')) as {
 for (const c of cases) {
     test(c.name, () => {
         const inputs = { ...defaults, ...c.inputs };
-        const result = calculateTax(inputs) as unknown as Record<string, number>;
+        const result = calculateTax(inputs);
 
         for (const [key, expected] of Object.entries(c.expected)) {
-            const actual = result[key];
+            // "stateTax.incomeTax" reads a nested field
+            const actual = key.split('.').reduce<unknown>((v, k) => (v as Record<string, unknown> | null)?.[k], result) as number;
             assert.ok(
                 Math.abs(actual - expected) < 0.005,
                 `${key}: expected ${expected}, got ${actual}`

@@ -42,7 +42,10 @@ final class SharedFixtureTests: XCTestCase {
             let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(result)) as! [String: Any]
 
             for (key, expected) in c.expected {
-                guard let actual = (encoded[key] as? NSNumber)?.doubleValue else {
+                // "stateTax.incomeTax" reads a nested field
+                var value: Any? = encoded
+                for part in key.split(separator: ".") { value = (value as? [String: Any])?[String(part)] }
+                guard let actual = (value as? NSNumber)?.doubleValue else {
                     XCTFail("\(c.name): result has no numeric field \(key)")
                     continue
                 }

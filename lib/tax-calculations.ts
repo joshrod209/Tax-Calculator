@@ -7,6 +7,7 @@ import {
     getBracketInfo
 } from './utils';
 import { calculateTraditionalIRADeductible, type IRADeductionInfo } from './ira-calculations';
+import { calculateStateTax, type StateCode, type StateTaxResult } from './state-tax';
 
 export interface TaxInputs {
     year: TaxYear;
@@ -39,6 +40,17 @@ export interface TaxInputs {
     educatorExpenses: number;
     isCoveredByEmployerPlan: boolean;
     isSpouseCoveredByEmployerPlan: boolean;
+    /** Tips from a tipped occupation, already included in grossIncome */
+    qualifiedTips: number;
+    /** The extra "half" of time-and-a-half overtime pay, already included in grossIncome */
+    qualifiedOvertime: number;
+    /** Interest on a loan for a new, US-assembled personal vehicle taken out after 2024 */
+    carLoanInterest: number;
+    /** Cash gifts to charity (deductible without itemizing from 2026) */
+    charitableDonations: number;
+    state: StateCode;
+    /** Rents their home in the state (California renter's credit) */
+    isRenter: boolean;
 }
 
 export interface PotentialSavings {
@@ -62,6 +74,10 @@ interface TaxCore {
     studentLoanDeduction: number;
     standardDeduction: number;
     seniorDeduction: number;
+    tipsDeduction: number;
+    overtimeDeduction: number;
+    carLoanInterestDeduction: number;
+    charitableDeduction: number;
     taxableIncome: number;
     taxBeforeCredits: number;
     /** Non-refundable Child Tax Credit + Credit for Other Dependents actually used */
@@ -99,7 +115,12 @@ export interface TaxCalculationResult extends Omit<TaxCore, 'bracket'> {
     /** Medicare including the 0.9% Additional Medicare Tax */
     medicareTax: number;
     payrollTax: number;
-    /** Gross income − net income tax − payroll tax − money set aside (retirement, IRA, HSA, premiums, FSA) */
+    /** State income tax details, or null when no state is selected */
+    stateTax: StateTaxResult | null;
+    stateIncomeTax: number;
+    /** State payroll tax withheld from wages (California SDI) */
+    statePayrollTax: number;
+    /** Gross income − federal and state income tax − payroll taxes − money set aside (retirement, IRA, HSA, premiums, FSA) */
     takeHomePay: number;
     bracketInfo: ReturnType<typeof getBracketInfo>;
     year: TaxYear;
@@ -230,7 +251,28 @@ function computeTax(inputs: TaxInputs): TaxCore {
         seniorDeduction = qualifying * perPerson;
     }
 
-    const taxableIncome = Math.max(0, agi - standardDeduction - seniorDeduction);
+    // Schedule 1-A deductions for tips, overtime and car loan interest; MAGI here is AGI
+    const overBy = (threshold: number) => Math.max(0, agi - threshold) / 1000;
+    let tipsDeduction = 0;
+    let overtimeDeduction = 0;
+    if (filingStatus !== 'marriedSeparately') {
+        const tips = yearData.tipsDeduction;
+        tipsDeduction = Math.max(0, Math.min(Math.max(0, inputs.qualifiedTips), tips.max) -
+            tips.reductionPer1000 * Math.floor(overBy(isJoint ? tips.joint : tips.other)));
+        const ot = yearData.overtimeDeduction;
+        overtimeDeduction = Math.max(0, Math.min(Math.max(0, inputs.qualifiedOvertime), isJoint ? ot.maxJoint : ot.maxOther) -
+            ot.reductionPer1000 * Math.floor(overBy(isJoint ? ot.joint : ot.other)));
+    }
+    const car = yearData.carLoanInterestDeduction;
+    const carLoanInterestDeduction = Math.max(0, Math.min(Math.max(0, inputs.carLoanInterest), car.max) -
+        car.reductionPer1000 * Math.ceil(overBy(isJoint ? car.joint : car.other)));
+    const charitableDeduction = Math.min(
+        Math.max(0, inputs.charitableDonations),
+        isJoint ? yearData.charitableDeduction.joint : yearData.charitableDeduction.other
+    );
+
+    const taxableIncome = Math.max(0, agi - standardDeduction - seniorDeduction - tipsDeduction -
+        overtimeDeduction - carLoanInterestDeduction - charitableDeduction);
     const bracket = findTaxBracket(taxableIncome, filingStatus, year);
     const taxBeforeCredits = Math.max(0, bracket.formula(taxableIncome));
 
@@ -267,6 +309,10 @@ function computeTax(inputs: TaxInputs): TaxCore {
         studentLoanDeduction,
         standardDeduction,
         seniorDeduction,
+        tipsDeduction,
+        overtimeDeduction,
+        carLoanInterestDeduction,
+        charitableDeduction,
         taxableIncome,
         taxBeforeCredits,
         dependentCredit,
@@ -278,9 +324,19 @@ function computeTax(inputs: TaxInputs): TaxCore {
     };
 }
 
+/** Federal plus state income tax for a set of inputs */
+function totalIncomeTax(inputs: TaxInputs, core: TaxCore): number {
+    return core.netIncomeTax + (stateTaxFor(inputs, core)?.incomeTax ?? 0);
+}
+
+function stateTaxFor(inputs: TaxInputs, core: TaxCore): StateTaxResult | null {
+    return calculateStateTax(inputs, core.agi, calculatePayrollTax(inputs).payrollWages);
+}
+
 /**
  * Tax saved by adding pre-tax contributions, found by recomputing the whole
- * return, so IRA deductibility, phase-outs and credits are all reflected.
+ * return (federal and state), so IRA deductibility, phase-outs and credits are
+ * all reflected.
  */
 export function estimateTaxSavings(
     inputs: TaxInputs,
@@ -288,19 +344,20 @@ export function estimateTaxSavings(
     additionalIRA: number,
     additionalSpouseIRA = 0
 ): PotentialSavings {
-    const base = computeTax(inputs);
-    const changed = computeTax({
+    const changedInputs = {
         ...inputs,
         retirementContributions: inputs.retirementContributions + additional401k,
         iraContributions: inputs.iraContributions + additionalIRA,
         spouseIraContributions: inputs.spouseIraContributions + additionalSpouseIRA
-    });
+    };
+    const base = computeTax(inputs);
+    const changed = computeTax(changedInputs);
 
     return {
         additional401k,
         additionalIRA: additionalIRA + additionalSpouseIRA,
         totalAdditional: additional401k + additionalIRA + additionalSpouseIRA,
-        taxSavings: Math.max(0, base.netIncomeTax - changed.netIncomeTax),
+        taxSavings: Math.max(0, totalIncomeTax(inputs, base) - totalIncomeTax(changedInputs, changed)),
         marginalRate: base.marginalRate,
         newMarginalRate: changed.marginalRate,
         currentTaxableIncome: base.taxableIncome,
@@ -345,6 +402,9 @@ export function calculateTax(inputs: TaxInputs): TaxCalculationResult {
     const spouseIraLimit = isSpouseCatchUpEligible(inputs) ? yearData.iraLimit.max : yearData.iraLimit.standard;
 
     const payroll = calculatePayrollTax(inputs);
+    const stateTax = calculateStateTax(inputs, core.agi, payroll.payrollWages);
+    const stateIncomeTax = stateTax?.incomeTax ?? 0;
+    const statePayrollTax = stateTax?.disabilityInsurance ?? 0;
 
     const maxAdditional401k = Math.max(0, retirementLimit - inputs.retirementContributions);
     const maxAdditionalIRA = Math.max(0, iraLimit - inputs.iraContributions);
@@ -366,7 +426,11 @@ export function calculateTax(inputs: TaxInputs): TaxCalculationResult {
         totalContributions,
         effectiveRate: inputs.grossIncome > 0 ? (core.netIncomeTax / inputs.grossIncome) * 100 : 0,
         ...payroll,
-        takeHomePay: inputs.grossIncome - core.netIncomeTax - payroll.payrollTax - totalContributions,
+        stateTax,
+        stateIncomeTax,
+        statePayrollTax,
+        takeHomePay: inputs.grossIncome - core.netIncomeTax - payroll.payrollTax - totalContributions -
+            stateIncomeTax - statePayrollTax,
         bracketInfo: getBracketInfo(bracket),
         year,
         potentialSavings401k: maxAdditional401k > 0

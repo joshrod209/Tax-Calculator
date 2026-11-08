@@ -52,6 +52,12 @@ const defaultInputs: TaxCalculatorInputs = {
     educatorExpenses: 0,
     isCoveredByEmployerPlan: false,
     isSpouseCoveredByEmployerPlan: false,
+    qualifiedTips: 0,
+    qualifiedOvertime: 0,
+    carLoanInterest: 0,
+    charitableDonations: 0,
+    state: 'none',
+    isRenter: false,
 };
 
 export function useTaxCalculator() {

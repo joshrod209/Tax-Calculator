@@ -60,14 +60,22 @@ struct LiveSummaryBar: View {
                         .accessibilityIdentifier("summaryTakeHome")
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(result.netIncomeTax < 0 ? "Refund" : "Income Tax").font(.caption).foregroundStyle(.white.opacity(0.75))
+                    Text(result.netIncomeTax < 0 ? "Fed. Refund" : "Federal").font(.caption).foregroundStyle(.white.opacity(0.75))
                     Text(formatMoney(abs(result.netIncomeTax))).font(.headline).monospacedDigit()
                         .contentTransition(.numericText())
                         .accessibilityIdentifier("summaryTax")
                 }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Effective").font(.caption).foregroundStyle(.white.opacity(0.75))
-                    Text(formatPercentage(result.effectiveRate)).font(.headline).monospacedDigit()
+                if result.stateTax != nil {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("California").font(.caption).foregroundStyle(.white.opacity(0.75))
+                        Text(formatMoney(result.stateIncomeTax)).font(.headline).monospacedDigit()
+                            .contentTransition(.numericText())
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Effective").font(.caption).foregroundStyle(.white.opacity(0.75))
+                        Text(formatPercentage(result.effectiveRate)).font(.headline).monospacedDigit()
+                    }
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.subheadline.bold())
@@ -81,7 +89,7 @@ struct LiveSummaryBar: View {
             .animation(.snappy, value: result.takeHomePay)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Take-home \(formatMoney(result.takeHomePay)), income tax \(result.netIncomeTax < 0 ? "refund" : "owed") \(formatMoney(abs(result.netIncomeTax))). Show results.")
+        .accessibilityLabel("Take-home \(formatMoney(result.takeHomePay)), federal income tax \(result.netIncomeTax < 0 ? "refund" : "owed") \(formatMoney(abs(result.netIncomeTax)))\(result.stateTax != nil ? ", California income tax \(formatMoney(result.stateIncomeTax))" : ""). Show results.")
     }
 }
 

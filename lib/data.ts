@@ -75,6 +75,14 @@ export const TAX_YEAR_DATA = {
         },
         // OBBBA senior deduction (2025-2028): $6,000 per person 65+, reduced by 6% of MAGI over threshold
         seniorDeduction: { amount: 6000, phaseOutRate: 0.06, joint: 150000, other: 75000 },
+        // OBBBA deductions taken after AGI (Schedule 1-A, 2025-2028), phased out on MAGI over the threshold.
+        // Tips and overtime: $100 per full $1,000 over; married filing separately can't claim them.
+        // Car loan interest (new US-assembled vehicle, loan after 2024): $200 per $1,000 or part over.
+        tipsDeduction: { max: 25000, joint: 300000, other: 150000, reductionPer1000: 100 },
+        overtimeDeduction: { maxJoint: 25000, maxOther: 12500, joint: 300000, other: 150000, reductionPer1000: 100 },
+        carLoanInterestDeduction: { max: 10000, joint: 200000, other: 100000, reductionPer1000: 200 },
+        // Cash gifts to charity for people taking the standard deduction (starts 2026)
+        charitableDeduction: { joint: 0, other: 0 },
         retirementLimit: {
             standard: 23500,
             catchUp: 7500,
@@ -177,6 +185,14 @@ export const TAX_YEAR_DATA = {
             additionalMedicareThreshold: { single: 200000, headOfHousehold: 200000, marriedJointly: 250000, marriedSeparately: 125000 }
         },
         seniorDeduction: { amount: 6000, phaseOutRate: 0.06, joint: 150000, other: 75000 },
+        // OBBBA deductions taken after AGI (Schedule 1-A, 2025-2028), phased out on MAGI over the threshold.
+        // Tips and overtime: $100 per full $1,000 over; married filing separately can't claim them.
+        // Car loan interest (new US-assembled vehicle, loan after 2024): $200 per $1,000 or part over.
+        tipsDeduction: { max: 25000, joint: 300000, other: 150000, reductionPer1000: 100 },
+        overtimeDeduction: { maxJoint: 25000, maxOther: 12500, joint: 300000, other: 150000, reductionPer1000: 100 },
+        carLoanInterestDeduction: { max: 10000, joint: 200000, other: 100000, reductionPer1000: 200 },
+        // Cash gifts to charity for people taking the standard deduction (starts 2026)
+        charitableDeduction: { joint: 2000, other: 1000 },
         retirementLimit: {
             standard: 24500,
             catchUp: 8000,

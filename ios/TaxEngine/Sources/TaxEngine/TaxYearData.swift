@@ -115,6 +115,12 @@ public struct TaxYearData: Sendable {
         public let additionalMedicareRate: Double
         public let additionalMedicareThreshold: FilingStatusValues<Double>
     }
+    /// Schedule 1-A deduction: capped, then reduced per $1,000 of MAGI over the threshold
+    public struct PhasedDeduction: Sendable {
+        public let max: JointOther<Double>
+        public let threshold: JointOther<Double>
+        public let reductionPer1000: Double
+    }
     public struct TraditionalIRALimits: Sendable {
         public let singleCovered: IRALimitSet
         public let headOfHouseholdCovered: IRALimitSet
@@ -132,6 +138,14 @@ public struct TaxYearData: Sendable {
     public let refundableChildCredit: RefundableChildCredit
     public let payroll: Payroll
     public let seniorDeduction: SeniorDeduction
+    /// OBBBA deductions taken after AGI (Schedule 1-A, 2025-2028). Tips and overtime: $100 per full
+    /// $1,000 over, not for married filing separately. Car loan interest (new US-assembled vehicle,
+    /// loan after 2024): $200 per $1,000 or part over.
+    public let tipsDeduction: PhasedDeduction
+    public let overtimeDeduction: PhasedDeduction
+    public let carLoanInterestDeduction: PhasedDeduction
+    /// Cash gifts to charity for people taking the standard deduction (starts 2026)
+    public let charitableDeduction: JointOther<Double>
     public let retirementLimit: ContributionLimit
     public let iraLimit: ContributionLimit
     public let hsaLimit: HSALimit
@@ -200,6 +214,10 @@ public let taxYearData: [TaxYear: TaxYearData] = [
             additionalMedicareThreshold: FilingStatusValues(single: 200000, headOfHousehold: 200000, marriedJointly: 250000, marriedSeparately: 125000)
         ),
         seniorDeduction: .init(amount: 6000, phaseOutRate: 0.06, joint: 150000, other: 75000),
+        tipsDeduction: .init(max: .init(joint: 25000, other: 25000), threshold: .init(joint: 300000, other: 150000), reductionPer1000: 100),
+        overtimeDeduction: .init(max: .init(joint: 25000, other: 12500), threshold: .init(joint: 300000, other: 150000), reductionPer1000: 100),
+        carLoanInterestDeduction: .init(max: .init(joint: 10000, other: 10000), threshold: .init(joint: 200000, other: 100000), reductionPer1000: 200),
+        charitableDeduction: .init(joint: 0, other: 0),
         retirementLimit: .init(standard: 23500, catchUp: 7500, max: 31000),
         iraLimit: .init(standard: 7000, catchUp: 1000, max: 8000),
         hsaLimit: .init(selfOnly: 4300, family: 8550, catchUp: 1000),
@@ -261,6 +279,10 @@ public let taxYearData: [TaxYear: TaxYearData] = [
             additionalMedicareThreshold: FilingStatusValues(single: 200000, headOfHousehold: 200000, marriedJointly: 250000, marriedSeparately: 125000)
         ),
         seniorDeduction: .init(amount: 6000, phaseOutRate: 0.06, joint: 150000, other: 75000),
+        tipsDeduction: .init(max: .init(joint: 25000, other: 25000), threshold: .init(joint: 300000, other: 150000), reductionPer1000: 100),
+        overtimeDeduction: .init(max: .init(joint: 25000, other: 12500), threshold: .init(joint: 300000, other: 150000), reductionPer1000: 100),
+        carLoanInterestDeduction: .init(max: .init(joint: 10000, other: 10000), threshold: .init(joint: 200000, other: 100000), reductionPer1000: 200),
+        charitableDeduction: .init(joint: 2000, other: 1000),
         retirementLimit: .init(standard: 24500, catchUp: 8000, max: 32500),
         iraLimit: .init(standard: 7500, catchUp: 1100, max: 8600),
         hsaLimit: .init(selfOnly: 4400, family: 8750, catchUp: 1000),
