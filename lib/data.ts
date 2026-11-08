@@ -62,6 +62,17 @@ export const TAX_YEAR_DATA = {
         otherDependentCredit: 500,
         // Credits phase out by $50 per $1,000 (or fraction) of MAGI above the threshold
         childCreditPhaseOut: { joint: 400000, other: 200000 },
+        // Refundable part of the Child Tax Credit (Schedule 8812): up to this much per child,
+        // limited to 15% of earned income above $2,500
+        refundableChildCredit: { maxPerChild: 1700, earnedIncomeThreshold: 2500, rate: 0.15 },
+        // Employee payroll taxes (FICA). Social Security stops at the wage base, per worker.
+        payroll: {
+            socialSecurityRate: 0.062,
+            socialSecurityWageBase: 176100,
+            medicareRate: 0.0145,
+            additionalMedicareRate: 0.009,
+            additionalMedicareThreshold: { single: 200000, headOfHousehold: 200000, marriedJointly: 250000, marriedSeparately: 125000 }
+        },
         // OBBBA senior deduction (2025-2028): $6,000 per person 65+, reduced by 6% of MAGI over threshold
         seniorDeduction: { amount: 6000, phaseOutRate: 0.06, joint: 150000, other: 75000 },
         retirementLimit: {
@@ -154,6 +165,17 @@ export const TAX_YEAR_DATA = {
         childTaxCredit: 2200,
         otherDependentCredit: 500,
         childCreditPhaseOut: { joint: 400000, other: 200000 },
+        // Refundable part of the Child Tax Credit (Schedule 8812): up to this much per child,
+        // limited to 15% of earned income above $2,500
+        refundableChildCredit: { maxPerChild: 1700, earnedIncomeThreshold: 2500, rate: 0.15 },
+        // Employee payroll taxes (FICA). Social Security stops at the wage base, per worker.
+        payroll: {
+            socialSecurityRate: 0.062,
+            socialSecurityWageBase: 184500,
+            medicareRate: 0.0145,
+            additionalMedicareRate: 0.009,
+            additionalMedicareThreshold: { single: 200000, headOfHousehold: 200000, marriedJointly: 250000, marriedSeparately: 125000 }
+        },
         seniorDeduction: { amount: 6000, phaseOutRate: 0.06, joint: 150000, other: 75000 },
         retirementLimit: {
             standard: 24500,

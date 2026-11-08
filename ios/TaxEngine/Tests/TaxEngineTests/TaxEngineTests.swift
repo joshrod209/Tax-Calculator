@@ -83,7 +83,8 @@ final class TaxEngineTests: XCTestCase {
         let r = calculateTax(inputs { $0.grossIncome = 100_000 })
         XCTAssertEqual(r.taxObligation, 13_449, accuracy: 0.005)
         XCTAssertEqual(r.bracketInfo.rateName, "22%")
-        XCTAssertEqual(r.takeHomePay, 86_551, accuracy: 0.005)
+        XCTAssertEqual(r.payrollTax, 7_650, accuracy: 0.005)
+        XCTAssertEqual(r.takeHomePay, 78_901, accuracy: 0.005) // 100,000 − 13,449 − 7,650
     }
 
     func testFractionalTaxableIncome() {
@@ -184,6 +185,25 @@ final class TaxEngineTests: XCTestCase {
         let r = calculateTax(inputs { $0.grossIncome = 100_000 })
         XCTAssertEqual(r.potentialSavings401k?.taxSavings ?? 0, 220, accuracy: 0.005)
         XCTAssertEqual(r.maxAdditional401k, 23_500)
+    }
+
+    func testRefundableChildCreditReducesNetTax() {
+        let r = calculateTax(inputs {
+            $0.year = .y2026
+            $0.filingStatus = .headOfHousehold
+            $0.grossIncome = 30_000
+            $0.numChildren = 2
+        })
+        XCTAssertEqual(r.taxObligation, 0, accuracy: 0.005)
+        XCTAssertEqual(r.refundableChildCredit, 3_400, accuracy: 0.005)
+        XCTAssertEqual(r.netIncomeTax, -3_400, accuracy: 0.005)
+        XCTAssertLessThan(r.effectiveRate, 0)
+    }
+
+    func testPayrollTaxOnlyForJointSpouseWages() {
+        // spouseWages is ignored unless filing jointly
+        let single = calculatePayrollTax(inputs { $0.year = .y2026; $0.grossIncome = 300_000; $0.spouseWages = 150_000 })
+        XCTAssertEqual(single.socialSecurityTax, 11_439, accuracy: 0.005)
     }
 
     func testDefaultsTo2026() {

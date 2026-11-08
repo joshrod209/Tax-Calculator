@@ -65,7 +65,8 @@ struct SummaryCard: View {
             }
             HStack(spacing: 12) {
                 stat("Effective Tax Rate", formatPercentage(result.effectiveRate), id: "effectiveRate")
-                stat("Total Tax Owed", formatMoney(result.taxObligation), id: "totalTax")
+                stat(result.netIncomeTax < 0 ? "Income Tax Refund" : "Income Tax Owed",
+                     formatMoney(abs(result.netIncomeTax)), id: "totalTax")
             }
         }
         .foregroundStyle(.white)
@@ -114,8 +115,30 @@ struct BreakdownCard: View {
                     AmountRow(label: "Child & Dependent Credits", value: "−" + formatMoney(result.dependentCredit), valueColor: .green)
                         .accessibilityIdentifier("dependentCredit")
                 }
+                if result.refundableChildCredit > 0 {
+                    AmountRow(label: "Refundable Child Credit", value: "−" + formatMoney(result.refundableChildCredit), valueColor: .green)
+                        .accessibilityIdentifier("refundableChildCredit")
+                }
                 Divider()
-                AmountRow(label: "Total Tax Owed", value: formatMoney(result.taxObligation), emphasized: true)
+                AmountRow(
+                    label: result.netIncomeTax < 0 ? "Income Tax Refund" : "Income Tax Owed",
+                    value: formatMoney(abs(result.netIncomeTax)),
+                    emphasized: true,
+                    valueColor: result.netIncomeTax < 0 ? .green : .primary
+                )
+            }
+            .padding(14)
+            .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            VStack(spacing: 10) {
+                AmountRow(label: "Social Security (6.2%)", value: formatMoney(result.socialSecurityTax))
+                AmountRow(
+                    label: result.medicareTax > result.payrollWages * 0.0145 + 0.005 ? "Medicare (1.45% + 0.9%)" : "Medicare (1.45%)",
+                    value: formatMoney(result.medicareTax)
+                )
+                Divider()
+                AmountRow(label: "Payroll Tax", value: formatMoney(result.payrollTax), emphasized: true)
+                    .accessibilityIdentifier("payrollTax")
             }
             .padding(14)
             .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))

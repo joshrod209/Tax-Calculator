@@ -100,6 +100,21 @@ public struct TaxYearData: Sendable {
         public let family: Double
         public let catchUp: Double
     }
+    /// Refundable part of the Child Tax Credit (Schedule 8812)
+    public struct RefundableChildCredit: Sendable {
+        public let maxPerChild: Double
+        public let earnedIncomeThreshold: Double
+        public let rate: Double
+    }
+    /// Employee payroll taxes (FICA)
+    public struct Payroll: Sendable {
+        public let socialSecurityRate: Double
+        /// Per worker
+        public let socialSecurityWageBase: Double
+        public let medicareRate: Double
+        public let additionalMedicareRate: Double
+        public let additionalMedicareThreshold: FilingStatusValues<Double>
+    }
     public struct TraditionalIRALimits: Sendable {
         public let singleCovered: IRALimitSet
         public let headOfHouseholdCovered: IRALimitSet
@@ -114,6 +129,8 @@ public struct TaxYearData: Sendable {
     public let childTaxCredit: Double
     public let otherDependentCredit: Double
     public let childCreditPhaseOut: JointOther<Double>
+    public let refundableChildCredit: RefundableChildCredit
+    public let payroll: Payroll
     public let seniorDeduction: SeniorDeduction
     public let retirementLimit: ContributionLimit
     public let iraLimit: ContributionLimit
@@ -174,6 +191,14 @@ public let taxYearData: [TaxYear: TaxYearData] = [
         childTaxCredit: 2200,
         otherDependentCredit: 500,
         childCreditPhaseOut: .init(joint: 400000, other: 200000),
+        refundableChildCredit: .init(maxPerChild: 1700, earnedIncomeThreshold: 2500, rate: 0.15),
+        payroll: .init(
+            socialSecurityRate: 0.062,
+            socialSecurityWageBase: 176100,
+            medicareRate: 0.0145,
+            additionalMedicareRate: 0.009,
+            additionalMedicareThreshold: FilingStatusValues(single: 200000, headOfHousehold: 200000, marriedJointly: 250000, marriedSeparately: 125000)
+        ),
         seniorDeduction: .init(amount: 6000, phaseOutRate: 0.06, joint: 150000, other: 75000),
         retirementLimit: .init(standard: 23500, catchUp: 7500, max: 31000),
         iraLimit: .init(standard: 7000, catchUp: 1000, max: 8000),
@@ -227,6 +252,14 @@ public let taxYearData: [TaxYear: TaxYearData] = [
         childTaxCredit: 2200,
         otherDependentCredit: 500,
         childCreditPhaseOut: .init(joint: 400000, other: 200000),
+        refundableChildCredit: .init(maxPerChild: 1700, earnedIncomeThreshold: 2500, rate: 0.15),
+        payroll: .init(
+            socialSecurityRate: 0.062,
+            socialSecurityWageBase: 184500,
+            medicareRate: 0.0145,
+            additionalMedicareRate: 0.009,
+            additionalMedicareThreshold: FilingStatusValues(single: 200000, headOfHousehold: 200000, marriedJointly: 250000, marriedSeparately: 125000)
+        ),
         seniorDeduction: .init(amount: 6000, phaseOutRate: 0.06, joint: 150000, other: 75000),
         retirementLimit: .init(standard: 24500, catchUp: 8000, max: 32500),
         iraLimit: .init(standard: 7500, catchUp: 1100, max: 8600),

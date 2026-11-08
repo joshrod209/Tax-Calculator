@@ -19,6 +19,7 @@ const defaults: TaxInputs = {
     year: 2026,
     filingStatus: 'single',
     grossIncome: 0,
+    spouseWages: 0,
     isAge50Plus: false,
     isAge65Plus: false,
     isSpouseAge50Plus: false,

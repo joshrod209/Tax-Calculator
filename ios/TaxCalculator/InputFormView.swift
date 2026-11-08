@@ -29,9 +29,19 @@ struct InputFormView: View {
             }
 
             if model.isJoint {
-                Section("Spouse") {
+                Section {
+                    CurrencyField(
+                        title: "Spouse's share of income",
+                        value: $model.inputs.spouseWages,
+                        caption: "Part of the gross income your spouse earns",
+                        accessibilityID: "spouseWages"
+                    )
                     Toggle("Spouse is 50 or older", isOn: $model.inputs.isSpouseAge50Plus)
                     Toggle("Spouse is 65 or older", isOn: $model.inputs.isSpouseAge65Plus)
+                } header: {
+                    Text("Spouse")
+                } footer: {
+                    Text("Only affects Social Security tax, which stops at a yearly wage cap for each worker. Leave at $0 if one of you earns it all.")
                 }
             }
 

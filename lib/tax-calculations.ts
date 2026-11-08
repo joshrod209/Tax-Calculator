@@ -11,7 +11,10 @@ import { calculateTraditionalIRADeductible, type IRADeductionInfo } from './ira-
 export interface TaxInputs {
     year: TaxYear;
     filingStatus: FilingStatus;
+    /** Total wages for the return (both spouses on a joint return) */
     grossIncome: number;
+    /** Joint returns: the part of grossIncome your spouse earns (each worker has their own Social Security wage base) */
+    spouseWages: number;
     isAge50Plus: boolean;
     isAge65Plus: boolean;
     isSpouseAge50Plus: boolean;
@@ -61,8 +64,14 @@ interface TaxCore {
     seniorDeduction: number;
     taxableIncome: number;
     taxBeforeCredits: number;
+    /** Non-refundable Child Tax Credit + Credit for Other Dependents actually used */
     dependentCredit: number;
+    /** Income tax after non-refundable credits (never below zero) */
     taxObligation: number;
+    /** Refundable part of the Child Tax Credit (Additional Child Tax Credit) */
+    refundableChildCredit: number;
+    /** taxObligation minus refundable credits; negative means a refund */
+    netIncomeTax: number;
     marginalRate: number;
     bracket: ReturnType<typeof findTaxBracket>;
 }
@@ -82,7 +91,16 @@ export interface TaxCalculationResult extends Omit<TaxCore, 'bracket'> {
     totalDeductions: number;
     /** Cash set aside from pay: retirement, IRA, HSA, premiums, FSA */
     totalContributions: number;
+    /** Income tax rate after all credits, as % of gross income */
     effectiveRate: number;
+    /** Wages subject to payroll tax: gross minus cafeteria-plan items (HSA, premiums, FSA); 401(k) is still taxed */
+    payrollWages: number;
+    socialSecurityTax: number;
+    /** Medicare including the 0.9% Additional Medicare Tax */
+    medicareTax: number;
+    payrollTax: number;
+    /** Gross income − net income tax − payroll tax − money set aside (retirement, IRA, HSA, premiums, FSA) */
+    takeHomePay: number;
     bracketInfo: ReturnType<typeof getBracketInfo>;
     year: TaxYear;
     potentialSavings401k: PotentialSavings | null;
@@ -94,6 +112,36 @@ export interface TaxCalculationResult extends Omit<TaxCore, 'bracket'> {
     maxAdditionalSpouseIRA: number;
     retirementLimit: number;
     iraLimit: number;
+}
+
+export interface PayrollTax {
+    payrollWages: number;
+    socialSecurityTax: number;
+    medicareTax: number;
+    payrollTax: number;
+}
+
+/**
+ * Employee share of Social Security and Medicare on wages. Cafeteria-plan items
+ * (HSA through payroll, health premiums, health FSA) are exempt; 401(k)
+ * deferrals are not. On a joint return the Social Security wage base applies to
+ * each spouse's wages, and Additional Medicare Tax to their combined wages.
+ */
+export function calculatePayrollTax(inputs: TaxInputs): PayrollTax {
+    const p = getTaxYearData(inputs.year).payroll;
+    const isJoint = inputs.filingStatus === 'marriedJointly';
+    const exempt = inputs.hsaContributions + inputs.healthInsurancePremiums + inputs.fsaContributions;
+    const payrollWages = Math.max(0, inputs.grossIncome - exempt);
+    const spouseWages = isJoint ? Math.min(Math.max(0, inputs.spouseWages), payrollWages) : 0;
+    const yourWages = payrollWages - spouseWages;
+
+    const socialSecurityTax =
+        p.socialSecurityRate * (Math.min(yourWages, p.socialSecurityWageBase) + Math.min(spouseWages, p.socialSecurityWageBase));
+    const threshold = p.additionalMedicareThreshold[inputs.filingStatus];
+    const medicareTax =
+        p.medicareRate * payrollWages + p.additionalMedicareRate * Math.max(0, payrollWages - threshold);
+
+    return { payrollWages, socialSecurityTax, medicareTax, payrollTax: socialSecurityTax + medicareTax };
 }
 
 const isCatchUpEligible = (inputs: TaxInputs) => inputs.isAge50Plus || inputs.isAge65Plus;
@@ -197,6 +245,19 @@ function computeTax(inputs: TaxInputs): TaxCore {
     const allowedCredit = Math.max(0, grossCredit - creditReduction);
     const dependentCredit = Math.min(allowedCredit, taxBeforeCredits);
 
+    // Refundable part (Schedule 8812): the unused credit, capped per child and at
+    // 15% of earned income over $2,500. Earned income is taxable wages (pay after
+    // 401(k) and cafeteria-plan deductions). The 3+ children alternative needs the
+    // Earned Income Credit, which isn't modeled, so only the 15% method is used.
+    const refundable = yearData.refundableChildCredit;
+    const earnedIncome = magi + inputs.educatorExpenses;
+    const refundableChildCredit = Math.max(0, Math.min(
+        allowedCredit - dependentCredit,
+        Math.max(0, inputs.numChildren) * refundable.maxPerChild,
+        refundable.rate * Math.max(0, earnedIncome - refundable.earnedIncomeThreshold)
+    ));
+    const taxObligation = taxBeforeCredits - dependentCredit;
+
     return {
         magi,
         agi,
@@ -209,7 +270,9 @@ function computeTax(inputs: TaxInputs): TaxCore {
         taxableIncome,
         taxBeforeCredits,
         dependentCredit,
-        taxObligation: taxBeforeCredits - dependentCredit,
+        taxObligation,
+        refundableChildCredit,
+        netIncomeTax: taxObligation - refundableChildCredit,
         marginalRate: bracket.rate * 100,
         bracket
     };
@@ -237,7 +300,7 @@ export function estimateTaxSavings(
         additional401k,
         additionalIRA: additionalIRA + additionalSpouseIRA,
         totalAdditional: additional401k + additionalIRA + additionalSpouseIRA,
-        taxSavings: Math.max(0, base.taxObligation - changed.taxObligation),
+        taxSavings: Math.max(0, base.netIncomeTax - changed.netIncomeTax),
         marginalRate: base.marginalRate,
         newMarginalRate: changed.marginalRate,
         currentTaxableIncome: base.taxableIncome,
@@ -281,6 +344,8 @@ export function calculateTax(inputs: TaxInputs): TaxCalculationResult {
     const iraLimit = catchUp ? yearData.iraLimit.max : yearData.iraLimit.standard;
     const spouseIraLimit = isSpouseCatchUpEligible(inputs) ? yearData.iraLimit.max : yearData.iraLimit.standard;
 
+    const payroll = calculatePayrollTax(inputs);
+
     const maxAdditional401k = Math.max(0, retirementLimit - inputs.retirementContributions);
     const maxAdditionalIRA = Math.max(0, iraLimit - inputs.iraContributions);
     const maxAdditionalSpouseIRA = isJoint ? Math.max(0, spouseIraLimit - spouseIraContributions) : 0;
@@ -299,7 +364,9 @@ export function calculateTax(inputs: TaxInputs): TaxCalculationResult {
         educatorExpenses: inputs.educatorExpenses,
         totalDeductions,
         totalContributions,
-        effectiveRate: inputs.grossIncome > 0 ? (core.taxObligation / inputs.grossIncome) * 100 : 0,
+        effectiveRate: inputs.grossIncome > 0 ? (core.netIncomeTax / inputs.grossIncome) * 100 : 0,
+        ...payroll,
+        takeHomePay: inputs.grossIncome - core.netIncomeTax - payroll.payrollTax - totalContributions,
         bracketInfo: getBracketInfo(bracket),
         year,
         potentialSavings401k: maxAdditional401k > 0

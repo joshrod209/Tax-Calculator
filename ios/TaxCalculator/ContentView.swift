@@ -60,8 +60,8 @@ struct LiveSummaryBar: View {
                         .accessibilityIdentifier("summaryTakeHome")
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Tax Owed").font(.caption).foregroundStyle(.white.opacity(0.75))
-                    Text(formatMoney(result.taxObligation)).font(.headline).monospacedDigit()
+                    Text(result.netIncomeTax < 0 ? "Refund" : "Income Tax").font(.caption).foregroundStyle(.white.opacity(0.75))
+                    Text(formatMoney(abs(result.netIncomeTax))).font(.headline).monospacedDigit()
                         .contentTransition(.numericText())
                         .accessibilityIdentifier("summaryTax")
                 }
@@ -81,7 +81,7 @@ struct LiveSummaryBar: View {
             .animation(.snappy, value: result.takeHomePay)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Take-home \(formatMoney(result.takeHomePay)), tax owed \(formatMoney(result.taxObligation)). Show results.")
+        .accessibilityLabel("Take-home \(formatMoney(result.takeHomePay)), income tax \(result.netIncomeTax < 0 ? "refund" : "owed") \(formatMoney(abs(result.netIncomeTax))). Show results.")
     }
 }
 

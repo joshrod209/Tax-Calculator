@@ -246,6 +246,29 @@ export default function InputSection({ calculator }: InputSectionProps) {
             </div>
           </div>
 
+          {inputs.filingStatus === 'marriedJointly' && (
+            <div className="col-span-1 md:col-span-2">
+              <div className="flex items-center gap-2 mb-2 ml-1">
+                <label className="block text-sm font-semibold text-slate-600">Spouse&apos;s Share of Income</label>
+                <HelpTooltip content="How much of the gross income above your spouse earns. Social Security tax stops at a yearly wage cap for each worker, so a two-earner couple can pay more of it than a one-earner couple with the same total." />
+              </div>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                <input
+                  type="number"
+                  value={inputs.spouseWages || ''}
+                  onChange={(e) => updateInput('spouseWages', Math.min(parseFloat(e.target.value) || 0, inputs.grossIncome))}
+                  placeholder="0"
+                  min="0"
+                  max={inputs.grossIncome}
+                  aria-label="Spouse's Share of Income"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 font-medium rounded-xl pl-8 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                />
+              </div>
+              <p className="text-xs text-slate-500 mt-1 ml-1">Only affects Social Security tax. Leave at $0 if one of you earns it all.</p>
+            </div>
+          )}
+
           <div className="col-span-1 md:col-span-2">
             <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
               <input 

@@ -72,6 +72,7 @@ final class CalculatorModel {
     private func normalized(_ original: TaxInputs) -> TaxInputs {
         var i = original
         if i.filingStatus != .marriedJointly {
+            i.spouseWages = 0
             i.isSpouseAge50Plus = false
             i.isSpouseAge65Plus = false
             i.spouseRetirementContributions = 0
@@ -89,6 +90,7 @@ final class CalculatorModel {
         i.fsaContributions = min(i.fsaContributions, yearData.fsaLimit)
         i.educatorExpenses = min(i.educatorExpenses, yearData.educatorExpensesLimit)
         i.studentLoanInterest = max(0, i.studentLoanInterest)
+        i.spouseWages = min(max(0, i.spouseWages), i.grossIncome)
         return i
     }
 

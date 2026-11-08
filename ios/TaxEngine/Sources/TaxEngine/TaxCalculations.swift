@@ -4,7 +4,10 @@ import Foundation
 public struct TaxInputs: Codable, Sendable, Equatable {
     public var year: TaxYear = .y2026
     public var filingStatus: FilingStatus = .single
+    /// Total wages for the return (both spouses on a joint return)
     public var grossIncome: Double = 0
+    /// Joint returns: the part of grossIncome your spouse earns (each worker has their own Social Security wage base)
+    public var spouseWages: Double = 0
     public var isAge50Plus = false
     public var isAge65Plus = false
     public var isSpouseAge50Plus = false
@@ -33,7 +36,7 @@ public struct TaxInputs: Codable, Sendable, Equatable {
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case year, filingStatus, grossIncome, isAge50Plus, isAge65Plus, isSpouseAge50Plus, isSpouseAge65Plus,
+        case year, filingStatus, grossIncome, spouseWages, isAge50Plus, isAge65Plus, isSpouseAge50Plus, isSpouseAge65Plus,
              numChildren, numOtherDependents, retirementContributions, spouseRetirementContributions,
              iraContributions, spouseIraContributions, isNonDeductibleIRA, isSpouseNonDeductibleIRA,
              hsaCoverageType, hsaContributions, healthInsurancePremiums, fsaContributions,
@@ -49,6 +52,7 @@ public struct TaxInputs: Codable, Sendable, Equatable {
         year = try v(.year, year)
         filingStatus = try v(.filingStatus, filingStatus)
         grossIncome = try v(.grossIncome, grossIncome)
+        spouseWages = try v(.spouseWages, spouseWages)
         isAge50Plus = try v(.isAge50Plus, isAge50Plus)
         isAge65Plus = try v(.isAge65Plus, isAge65Plus)
         isSpouseAge50Plus = try v(.isSpouseAge50Plus, isSpouseAge50Plus)
@@ -99,6 +103,8 @@ struct TaxCore {
     var taxBeforeCredits: Double
     var dependentCredit: Double
     var taxObligation: Double
+    var refundableChildCredit: Double
+    var netIncomeTax: Double
     var marginalRate: Double
     var bracket: TaxBracket
 }
@@ -115,8 +121,14 @@ public struct TaxCalculationResult: Codable, Sendable, Equatable {
     public let seniorDeduction: Double
     public let taxableIncome: Double
     public let taxBeforeCredits: Double
+    /// Non-refundable Child Tax Credit + Credit for Other Dependents actually used
     public let dependentCredit: Double
+    /// Income tax after non-refundable credits (never below zero)
     public let taxObligation: Double
+    /// Refundable part of the Child Tax Credit (Additional Child Tax Credit)
+    public let refundableChildCredit: Double
+    /// taxObligation minus refundable credits; negative means a refund
+    public let netIncomeTax: Double
     public let marginalRate: Double
 
     public let grossIncome: Double
@@ -133,7 +145,16 @@ public struct TaxCalculationResult: Codable, Sendable, Equatable {
     public let totalDeductions: Double
     /// Cash set aside from pay: retirement, IRA, HSA, premiums, FSA
     public let totalContributions: Double
+    /// Income tax rate after all credits, as % of gross income
     public let effectiveRate: Double
+    /// Wages subject to payroll tax: gross minus cafeteria-plan items (HSA, premiums, FSA); 401(k) is still taxed
+    public let payrollWages: Double
+    public let socialSecurityTax: Double
+    /// Medicare including the 0.9% Additional Medicare Tax
+    public let medicareTax: Double
+    public let payrollTax: Double
+    /// Gross income − net income tax − payroll tax − money set aside (retirement, IRA, HSA, premiums, FSA)
+    public let takeHomePay: Double
     public let bracketInfo: BracketInfo
     public let year: TaxYear
     public let potentialSavings401k: PotentialSavings?
@@ -145,9 +166,6 @@ public struct TaxCalculationResult: Codable, Sendable, Equatable {
     public let maxAdditionalSpouseIRA: Double
     public let retirementLimit: Double
     public let iraLimit: Double
-
-    /// Gross income minus tax and everything set aside from pay (as shown in the web app)
-    public var takeHomePay: Double { grossIncome - taxObligation - totalContributions }
 }
 
 /// Linear phase-out: 1 below start, 0 at or above end
@@ -243,6 +261,19 @@ func computeTax(_ inputs: TaxInputs) -> TaxCore {
     let allowedCredit = max(0, grossCredit - creditReduction)
     let dependentCredit = min(allowedCredit, taxBeforeCredits)
 
+    // Refundable part (Schedule 8812): the unused credit, capped per child and at 15% of
+    // earned income over $2,500. Earned income is taxable wages (pay after 401(k) and
+    // cafeteria-plan deductions). The 3+ children alternative needs the Earned Income
+    // Credit, which isn't modeled, so only the 15% method is used.
+    let refundable = data.refundableChildCredit
+    let earnedIncome = magi + inputs.educatorExpenses
+    let refundableChildCredit = max(0, min(
+        allowedCredit - dependentCredit,
+        Double(max(0, inputs.numChildren)) * refundable.maxPerChild,
+        refundable.rate * max(0, earnedIncome - refundable.earnedIncomeThreshold)
+    ))
+    let taxObligation = taxBeforeCredits - dependentCredit
+
     return TaxCore(
         magi: magi,
         agi: agi,
@@ -255,10 +286,41 @@ func computeTax(_ inputs: TaxInputs) -> TaxCore {
         taxableIncome: taxableIncome,
         taxBeforeCredits: taxBeforeCredits,
         dependentCredit: dependentCredit,
-        taxObligation: taxBeforeCredits - dependentCredit,
+        taxObligation: taxObligation,
+        refundableChildCredit: refundableChildCredit,
+        netIncomeTax: taxObligation - refundableChildCredit,
         marginalRate: bracket.rate * 100,
         bracket: bracket
     )
+}
+
+public struct PayrollTax: Codable, Sendable, Equatable {
+    public let payrollWages: Double
+    public let socialSecurityTax: Double
+    public let medicareTax: Double
+    public let payrollTax: Double
+}
+
+/// Employee share of Social Security and Medicare on wages. Cafeteria-plan items (HSA through
+/// payroll, health premiums, health FSA) are exempt; 401(k) deferrals are not. On a joint return
+/// the Social Security wage base applies to each spouse's wages, and Additional Medicare Tax to
+/// their combined wages.
+public func calculatePayrollTax(_ inputs: TaxInputs) -> PayrollTax {
+    let p = getTaxYearData(inputs.year).payroll
+    let isJoint = inputs.filingStatus == .marriedJointly
+    let exempt = inputs.hsaContributions + inputs.healthInsurancePremiums + inputs.fsaContributions
+    let payrollWages = max(0, inputs.grossIncome - exempt)
+    let spouseWages = isJoint ? min(max(0, inputs.spouseWages), payrollWages) : 0
+    let yourWages = payrollWages - spouseWages
+
+    let socialSecurityTax =
+        p.socialSecurityRate * (min(yourWages, p.socialSecurityWageBase) + min(spouseWages, p.socialSecurityWageBase))
+    let threshold = p.additionalMedicareThreshold[inputs.filingStatus]
+    let medicareTax =
+        p.medicareRate * payrollWages + p.additionalMedicareRate * max(0, payrollWages - threshold)
+
+    return PayrollTax(payrollWages: payrollWages, socialSecurityTax: socialSecurityTax,
+                      medicareTax: medicareTax, payrollTax: socialSecurityTax + medicareTax)
 }
 
 /// Tax saved by adding pre-tax contributions, found by recomputing the whole return
@@ -280,7 +342,7 @@ public func estimateTaxSavings(
         additional401k: additional401k,
         additionalIRA: additionalIRA + additionalSpouseIRA,
         totalAdditional: additional401k + additionalIRA + additionalSpouseIRA,
-        taxSavings: max(0, base.taxObligation - changed.taxObligation),
+        taxSavings: max(0, base.netIncomeTax - changed.netIncomeTax),
         marginalRate: base.marginalRate,
         newMarginalRate: changed.marginalRate,
         currentTaxableIncome: base.taxableIncome,
@@ -319,6 +381,8 @@ public func calculateTax(_ inputs: TaxInputs) -> TaxCalculationResult {
     let iraLimit = inputs.isCatchUpEligible ? data.iraLimit.max : data.iraLimit.standard
     let spouseIraLimit = inputs.isSpouseCatchUpEligible ? data.iraLimit.max : data.iraLimit.standard
 
+    let payroll = calculatePayrollTax(inputs)
+
     let maxAdditional401k = max(0, retirementLimit - inputs.retirementContributions)
     let maxAdditionalIRA = max(0, iraLimit - inputs.iraContributions)
     let maxAdditionalSpouseIRA = isJoint ? max(0, spouseIraLimit - spouseIraContributions) : 0
@@ -336,6 +400,8 @@ public func calculateTax(_ inputs: TaxInputs) -> TaxCalculationResult {
         taxBeforeCredits: core.taxBeforeCredits,
         dependentCredit: core.dependentCredit,
         taxObligation: core.taxObligation,
+        refundableChildCredit: core.refundableChildCredit,
+        netIncomeTax: core.netIncomeTax,
         marginalRate: core.marginalRate,
         grossIncome: inputs.grossIncome,
         retirementContributions: inputs.retirementContributions,
@@ -349,7 +415,12 @@ public func calculateTax(_ inputs: TaxInputs) -> TaxCalculationResult {
         educatorExpenses: inputs.educatorExpenses,
         totalDeductions: totalDeductions,
         totalContributions: totalContributions,
-        effectiveRate: inputs.grossIncome > 0 ? (core.taxObligation / inputs.grossIncome) * 100 : 0,
+        effectiveRate: inputs.grossIncome > 0 ? (core.netIncomeTax / inputs.grossIncome) * 100 : 0,
+        payrollWages: payroll.payrollWages,
+        socialSecurityTax: payroll.socialSecurityTax,
+        medicareTax: payroll.medicareTax,
+        payrollTax: payroll.payrollTax,
+        takeHomePay: inputs.grossIncome - core.netIncomeTax - payroll.payrollTax - totalContributions,
         bracketInfo: getBracketInfo(core.bracket),
         year: inputs.year,
         potentialSavings401k: maxAdditional401k > 0

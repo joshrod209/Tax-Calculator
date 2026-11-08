@@ -40,7 +40,8 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
     )
   }
 
-  const takeHome = results.grossIncome - results.taxObligation - results.totalContributions
+  const takeHome = results.takeHomePay
+  const isRefund = results.netIncomeTax < 0
 
   return (
     <div className="lg:sticky lg:top-8 space-y-6" data-results-section>
@@ -59,8 +60,8 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
               <p className="text-xl font-bold text-white">{formatPercentage(results.effectiveRate)}</p>
             </div>
             <div className="transition-all duration-300 hover:bg-white/5 rounded-lg p-2 -m-2">
-              <p className="text-indigo-200 text-xs mb-1">Total Tax Owed</p>
-              <p className="text-xl font-bold text-white">{formatMoney(results.taxObligation)}</p>
+              <p className="text-indigo-200 text-xs mb-1">{isRefund ? 'Income Tax Refund' : 'Income Tax Owed'}</p>
+              <p className="text-xl font-bold text-white">{formatMoney(Math.abs(results.netIncomeTax))}</p>
             </div>
           </div>
         </div>
@@ -115,9 +116,30 @@ export default function ResultsSection({ calculator }: ResultsSectionProps) {
                 <span className="text-green-600 font-bold">-{formatMoney(results.dependentCredit)}</span>
               </div>
             )}
+            {results.refundableChildCredit > 0 && (
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-slate-600 text-sm">Refundable Child Credit</span>
+                <span className="text-green-600 font-bold">-{formatMoney(results.refundableChildCredit)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
-              <span className="text-slate-700 font-semibold text-sm">Total Tax Owed</span>
-              <span className="text-slate-900 font-bold">{formatMoney(results.taxObligation)}</span>
+              <span className="text-slate-700 font-semibold text-sm">{isRefund ? 'Income Tax Refund' : 'Income Tax Owed'}</span>
+              <span className={`font-bold ${isRefund ? 'text-green-600' : 'text-slate-900'}`}>{formatMoney(Math.abs(results.netIncomeTax))}</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 rounded-xl p-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-slate-600 text-sm">Social Security (6.2%)</span>
+              <span className="text-slate-900 font-bold">{formatMoney(results.socialSecurityTax)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600 text-sm">Medicare (1.45%{results.medicareTax > results.payrollWages * 0.0145 + 0.005 ? ' + 0.9%' : ''})</span>
+              <span className="text-slate-900 font-bold">{formatMoney(results.medicareTax)}</span>
+            </div>
+            <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
+              <span className="text-slate-700 font-semibold text-sm">Payroll Tax</span>
+              <span className="text-slate-900 font-bold">{formatMoney(results.payrollTax)}</span>
             </div>
           </div>
 

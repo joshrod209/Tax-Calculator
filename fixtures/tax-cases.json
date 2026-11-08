@@ -34,7 +34,9 @@
       },
       "expected": {
         "taxObligation": 10940,
-        "dependentCredit": 4400
+        "dependentCredit": 4400,
+        "payrollTax": 11475,
+        "takeHomePay": 127585
       }
     },
     {
@@ -138,7 +140,11 @@
       "expected": {
         "taxObligation": 13170,
         "taxableIncome": 83900,
-        "standardDeduction": 16100
+        "standardDeduction": 16100,
+        "socialSecurityTax": 6200,
+        "medicareTax": 1450,
+        "payrollTax": 7650,
+        "takeHomePay": 79180
       }
     },
     {
@@ -179,6 +185,107 @@
       "expected": {
         "iraDeduction": 3750,
         "agi": 82250
+      }
+    },
+    {
+      "name": "payroll: 2026 single $250k, Social Security wage base and Additional Medicare",
+      "inputs": {
+        "grossIncome": 250000
+      },
+      "expected": {
+        "socialSecurityTax": 11439,
+        "medicareTax": 4075
+      }
+    },
+    {
+      "name": "payroll: 2026 joint $300k, one earner",
+      "inputs": {
+        "filingStatus": "marriedJointly",
+        "grossIncome": 300000
+      },
+      "expected": {
+        "socialSecurityTax": 11439,
+        "medicareTax": 4800
+      }
+    },
+    {
+      "name": "payroll: 2026 joint $300k, two $150k earners (wage base per worker)",
+      "inputs": {
+        "filingStatus": "marriedJointly",
+        "grossIncome": 300000,
+        "spouseWages": 150000
+      },
+      "expected": {
+        "socialSecurityTax": 18600,
+        "medicareTax": 4800
+      }
+    },
+    {
+      "name": "payroll: health premiums are exempt, 401(k) is not",
+      "inputs": {
+        "grossIncome": 60000,
+        "healthInsurancePremiums": 3000,
+        "retirementContributions": 5000
+      },
+      "expected": {
+        "payrollWages": 57000,
+        "payrollTax": 4360.5
+      }
+    },
+    {
+      "name": "refundable CTC: 2026 head of household $30k, 2 children",
+      "inputs": {
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 30000,
+        "numChildren": 2
+      },
+      "expected": {
+        "taxBeforeCredits": 585,
+        "dependentCredit": 585,
+        "taxObligation": 0,
+        "refundableChildCredit": 3400,
+        "netIncomeTax": -3400,
+        "payrollTax": 2295,
+        "takeHomePay": 31105
+      }
+    },
+    {
+      "name": "refundable CTC: limited to 15% of earned income over $2,500",
+      "inputs": {
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 12000,
+        "numChildren": 1
+      },
+      "expected": {
+        "taxObligation": 0,
+        "refundableChildCredit": 1425,
+        "takeHomePay": 12507
+      }
+    },
+    {
+      "name": "refundable CTC: 401(k) lowers earned income but not payroll tax",
+      "inputs": {
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 12000,
+        "numChildren": 1,
+        "retirementContributions": 2000
+      },
+      "expected": {
+        "refundableChildCredit": 1125,
+        "payrollTax": 918,
+        "takeHomePay": 10207
+      }
+    },
+    {
+      "name": "refundable CTC: other dependents don't count toward the refundable part",
+      "inputs": {
+        "filingStatus": "headOfHousehold",
+        "grossIncome": 20000,
+        "numOtherDependents": 2
+      },
+      "expected": {
+        "taxObligation": 0,
+        "refundableChildCredit": 0
       }
     }
   ],
