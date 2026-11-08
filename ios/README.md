@@ -33,7 +33,3 @@ xcrun simctl launch booted com.joshrod209.TaxCalculator \
   -prefillInputs '{"year":2026,"filingStatus":"marriedJointly","grossIncome":150000,"numChildren":2}' \
   -initialTab results
 ```
-
-## Before App Store submission
-
-- Add a 1024×1024 app icon to `TaxCalculator/Assets.xcassets/AppIcon.appiconset`.
